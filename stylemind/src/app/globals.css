@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=DM+Sans:wght@300;400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #C8956C;
+  --brand-light: #F5EDE6;
+  --brand-dark: #8B5E3C;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #FAF7F4;
+  color: #1a1a1a;
+}
+
+/* Hide scrollbars but keep scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Streaming text cursor */
+.streaming-cursor::after {
+  content: '▋';
+  animation: blink 0.7s step-end infinite;
+  color: var(--brand);
+}
+@keyframes blink { 50% { opacity: 0; } }
