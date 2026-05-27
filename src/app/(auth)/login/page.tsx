@@ -46,7 +46,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#C8956C] transition-colors"
+            className="w-full px-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors"
             placeholder="you@example.com"
           />
         </div>
@@ -57,7 +57,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#C8956C] transition-colors"
+            className="w-full px-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors"
             placeholder="••••••••"
           />
         </div>
@@ -65,7 +65,7 @@ export default function LoginPage() {
           type="submit"
           disabled={loading}
           className="w-full py-3 rounded-full font-medium text-white text-sm transition-all hover:opacity-90 disabled:opacity-60 mt-2"
-          style={{ background: '#C8956C' }}
+          style={{ background: '#AA8EA0' }}
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
@@ -73,7 +73,7 @@ export default function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-stone-500">
         No account?{' '}
-        <Link href="/signup" className="font-medium hover:underline" style={{ color: '#C8956C' }}>
+        <Link href="/signup" className="font-medium hover:underline" style={{ color: '#AA8EA0' }}>
           Create one
         </Link>
       </p>

@@ -23,7 +23,7 @@ export default function BottomNav() {
             key={href}
             href={href}
             className={`flex flex-col items-center gap-0.5 px-4 py-1 text-xs font-medium transition-colors ${
-              active ? 'text-[#C8956C]' : 'text-stone-400 hover:text-stone-600'
+              active ? 'text-[#AA8EA0]' : 'text-stone-400 hover:text-stone-600'
             }`}
           >
             <Icon size={20} strokeWidth={active ? 2.5 : 1.5} />

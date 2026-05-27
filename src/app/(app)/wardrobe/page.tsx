@@ -17,12 +17,12 @@ const CATEGORIES: { label: string; value: ClothingCategory | 'all' }[] = [
 ]
 
 const CATEGORY_COLORS: Record<ClothingCategory, string> = {
-  tops: '#E8F0F8',
-  bottoms: '#EAF3EC',
-  dresses: '#F8EAF0',
-  shoes: '#F3F0E8',
-  accessories: '#EDE8F8',
-  outerwear: '#F0EBE8',
+  tops: '#EDE8F5',
+  bottoms: '#EBF3EC',
+  dresses: '#F5E8F0',
+  shoes: '#F0EDE8',
+  accessories: '#E8EFF5',
+  outerwear: '#F0EBF2',
 }
 
 export default function WardrobePage() {
@@ -66,7 +66,7 @@ export default function WardrobePage() {
         </div>
         <button
           className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
-          style={{ background: '#C8956C' }}
+          style={{ background: '#AA8EA0' }}
           onClick={() => alert('Upload coming soon — add photos of your clothes here.')}
         >
           <Plus size={14} />
@@ -81,7 +81,7 @@ export default function WardrobePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, color, tag…"
-          className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#C8956C] transition-colors bg-white"
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white"
         />
       </div>
 
@@ -96,7 +96,7 @@ export default function WardrobePage() {
                 ? 'text-white'
                 : 'bg-white border border-stone-200 text-stone-600 hover:border-stone-300'
             }`}
-            style={category === value ? { background: '#C8956C' } : {}}
+            style={category === value ? { background: '#AA8EA0' } : {}}
           >
             {label}
           </button>
@@ -135,7 +135,7 @@ export default function WardrobePage() {
 }
 
 function ClothingCard({ item }: { item: ClothingItem }) {
-  const bg = CATEGORY_COLORS[item.category] ?? '#F5EDE6'
+  const bg = CATEGORY_COLORS[item.category] ?? '#F5EEF3'
   const initials = item.name.slice(0, 2).toUpperCase()
 
   return (
@@ -151,7 +151,7 @@ function ClothingCard({ item }: { item: ClothingItem }) {
           className="w-full h-32 flex items-center justify-center"
           style={{ background: bg }}
         >
-          <span className="font-serif text-2xl font-bold" style={{ color: '#8B5E3C', opacity: 0.4 }}>
+          <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>
             {initials}
           </span>
         </div>
@@ -165,7 +165,7 @@ function ClothingCard({ item }: { item: ClothingItem }) {
           {item.color && <span className="text-stone-200 text-xs">·</span>}
           <span
             className="text-xs px-2 py-0.5 rounded-full capitalize"
-            style={{ background: bg, color: '#5a3e2b' }}
+            style={{ background: bg, color: '#4a3545' }}
           >
             {item.category}
           </span>

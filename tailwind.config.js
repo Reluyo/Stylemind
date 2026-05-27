@@ -13,9 +13,13 @@ module.exports = {
       },
       colors: {
         brand: {
-          DEFAULT: '#C8956C',
-          light: '#F5EDE6',
-          dark: '#8B5E3C',
+          DEFAULT: '#AA8EA0',
+          light: '#F5EEF3',
+          dark: '#725265',
+        },
+        sage: {
+          DEFAULT: '#7FA98A',
+          light: '#EBF3EC',
         },
       },
     },

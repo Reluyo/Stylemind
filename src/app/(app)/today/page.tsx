@@ -117,9 +117,9 @@ export default function TodayPage() {
       {weather && (
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
-          style={{ background: '#F5EDE6' }}
+          style={{ background: '#F5EEF3' }}
         >
-          <CloudSun size={20} style={{ color: '#C8956C' }} />
+          <CloudSun size={20} style={{ color: '#AA8EA0' }} />
           <div className="flex-1">
             <p className="text-sm font-medium text-stone-800">
               {weather.temp_f}°F · {weather.condition}
@@ -137,7 +137,7 @@ export default function TodayPage() {
           onClick={generateOutfits}
           disabled={generating || !items.length}
           className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full transition-all disabled:opacity-50 hover:opacity-80"
-          style={{ background: '#C8956C', color: 'white' }}
+          style={{ background: '#AA8EA0', color: 'white' }}
         >
           {generating ? (
             <RefreshCw size={14} className="animate-spin" />
@@ -151,7 +151,7 @@ export default function TodayPage() {
       {!items.length && (
         <div className="text-center py-10 text-stone-400 text-sm">
           <p>No wardrobe items yet.</p>
-          <p className="mt-1">Head to <span className="font-medium" style={{ color: '#C8956C' }}>Wardrobe</span> to add some.</p>
+          <p className="mt-1">Head to <span className="font-medium" style={{ color: '#AA8EA0' }}>Wardrobe</span> to add some.</p>
         </div>
       )}
 
@@ -167,7 +167,7 @@ export default function TodayPage() {
         <div
           className="rounded-2xl p-6 text-center mb-6 border border-dashed border-stone-200"
         >
-          <Sparkles size={28} className="mx-auto mb-2" style={{ color: '#C8956C' }} />
+          <Sparkles size={28} className="mx-auto mb-2" style={{ color: '#AA8EA0' }} />
           <p className="text-sm text-stone-500">Tap <strong>Generate</strong> to get today&apos;s outfit picks</p>
         </div>
       )}
@@ -203,7 +203,7 @@ export default function TodayPage() {
                       ? 'text-white rounded-br-sm'
                       : 'bg-white border border-stone-100 text-stone-700 rounded-bl-sm'
                   }`}
-                  style={msg.role === 'user' ? { background: '#C8956C' } : {}}
+                  style={msg.role === 'user' ? { background: '#AA8EA0' } : {}}
                 >
                   {msg.content}
                 </div>
@@ -227,13 +227,13 @@ export default function TodayPage() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage(input)}
             placeholder="Ask your stylist anything…"
-            className="flex-1 px-4 py-3 rounded-full border border-stone-200 text-sm outline-none focus:border-[#C8956C] transition-colors bg-white"
+            className="flex-1 px-4 py-3 rounded-full border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || streaming}
             className="p-3 rounded-full text-white transition-all hover:opacity-80 disabled:opacity-40"
-            style={{ background: '#C8956C' }}
+            style={{ background: '#AA8EA0' }}
           >
             <Send size={16} />
           </button>
@@ -247,16 +247,16 @@ function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
   const [expanded, setExpanded] = useState(false)
 
   const OCCASION_COLORS: Record<string, string> = {
-    work: '#E8F4F0',
-    casual: '#EEF3FA',
-    formal: '#F3EEF9',
-    evening: '#2D1B45',
-    sporty: '#EAF7F0',
-    'smart casual': '#FDF3E7',
+    work: '#E5EDF5',
+    casual: '#EBF3EC',
+    formal: '#EDE8F5',
+    evening: '#251828',
+    sporty: '#E5F5EE',
+    'smart casual': '#F5EEE8',
   }
   const oKey = outfit.occasion?.toLowerCase() ?? ''
-  const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EDE6'
-  const textDark = bgColor === '#2D1B45'
+  const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EEF3'
+  const textDark = bgColor === '#251828'
 
   return (
     <div
@@ -269,13 +269,13 @@ function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
           <div className="flex items-center gap-2 mt-1">
             <span
               className="text-xs font-medium px-2.5 py-0.5 rounded-full"
-              style={{ background: bgColor, color: textDark ? '#FAF7F4' : '#5a3e2b' }}
+              style={{ background: bgColor, color: textDark ? '#F8F5F7' : '#4a3545' }}
             >
               {outfit.occasion}
             </span>
             <span
               className="text-xs px-2.5 py-0.5 rounded-full"
-              style={{ background: '#F5EDE6', color: '#8B5E3C' }}
+              style={{ background: '#F5EEF3', color: '#725265' }}
             >
               {outfit.style_tag}
             </span>
@@ -293,7 +293,7 @@ function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
           <ul className="space-y-1 mb-3">
             {outfit.items.map((item) => (
               <li key={item} className="flex items-center gap-2 text-sm text-stone-600">
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C8956C' }} />
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#AA8EA0' }} />
                 {item}
               </li>
             ))}

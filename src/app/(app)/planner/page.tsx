@@ -98,7 +98,7 @@ export default function PlannerPage() {
           onClick={generatePlan}
           disabled={generating || !items.length}
           className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all disabled:opacity-50"
-          style={{ background: '#C8956C' }}
+          style={{ background: '#AA8EA0' }}
         >
           <Sparkles size={14} />
           {generating ? 'Planning…' : 'Generate'}
@@ -124,18 +124,18 @@ export default function PlannerPage() {
             <div
               key={day}
               className={`rounded-2xl border overflow-hidden ${
-                isToday ? 'border-[#C8956C]' : 'border-stone-100'
+                isToday ? 'border-[#AA8EA0]' : 'border-stone-100'
               } ${isPast ? 'opacity-60' : ''}`}
             >
               <div
                 className="flex items-center gap-3 px-4 py-3"
-                style={{ background: isToday ? '#F5EDE6' : 'white' }}
+                style={{ background: isToday ? '#F5EEF3' : 'white' }}
               >
                 <div className="flex-shrink-0 text-center w-10">
                   <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{day}</p>
                   <p
                     className={`text-lg font-bold leading-none mt-0.5 ${isToday ? '' : 'text-stone-700'}`}
-                    style={isToday ? { color: '#C8956C' } : {}}
+                    style={isToday ? { color: '#AA8EA0' } : {}}
                   >
                     {date.getDate()}
                   </p>
@@ -156,7 +156,7 @@ export default function PlannerPage() {
                 {isToday && (
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0"
-                    style={{ background: '#C8956C' }}
+                    style={{ background: '#AA8EA0' }}
                   >
                     TODAY
                   </span>
@@ -171,7 +171,7 @@ export default function PlannerPage() {
         <div className="mt-6 rounded-2xl border border-dashed border-stone-200 p-6 text-center">
           <Calendar size={28} className="mx-auto mb-2 text-stone-300" />
           <p className="text-sm text-stone-400">
-            Tap <strong style={{ color: '#C8956C' }}>Generate</strong> to plan your full work week
+            Tap <strong style={{ color: '#AA8EA0' }}>Generate</strong> to plan your full work week
           </p>
         </div>
       )}

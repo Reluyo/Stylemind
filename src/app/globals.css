@@ -4,9 +4,11 @@
 @tailwind utilities;
 
 :root {
-  --brand: #C8956C;
-  --brand-light: #F5EDE6;
-  --brand-dark: #8B5E3C;
+  --brand: #AA8EA0;
+  --brand-light: #F5EEF3;
+  --brand-dark: #725265;
+  --sage: #7FA98A;
+  --sage-light: #EBF3EC;
 }
 
 * {
@@ -14,7 +16,7 @@
 }
 
 body {
-  background: #FAF7F4;
+  background: #F8F5F7;
   color: #1a1a1a;
 }
 

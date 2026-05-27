@@ -2,10 +2,10 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen" style={{ background: '#FAF7F4' }}>
+    <div className="min-h-screen" style={{ background: '#F8F5F7' }}>
       {/* Header */}
       <header className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
-        <span className="font-serif text-xl font-bold" style={{ color: '#C8956C' }}>StyleMind</span>
+        <span className="font-serif text-xl font-bold" style={{ color: '#AA8EA0' }}>StyleMind</span>
         <div className="flex items-center gap-4">
           <Link href="/login" className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors">
             Sign in
@@ -13,7 +13,7 @@ export default function LandingPage() {
           <Link
             href="/signup"
             className="text-sm font-medium px-4 py-2 rounded-full text-white transition-all hover:opacity-90"
-            style={{ background: '#C8956C' }}
+            style={{ background: '#AA8EA0' }}
           >
             Get started
           </Link>
@@ -24,14 +24,14 @@ export default function LandingPage() {
       <section className="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
         <div
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6"
-          style={{ background: '#F5EDE6', color: '#8B5E3C' }}
+          style={{ background: '#F5EEF3', color: '#725265' }}
         >
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#C8956C' }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#AA8EA0' }} />
           AI-powered outfit planning
         </div>
         <h1 className="font-serif text-5xl md:text-6xl font-bold text-stone-900 leading-tight mb-6">
           Your wardrobe,<br />
-          <span style={{ color: '#C8956C' }}>curated daily</span>
+          <span style={{ color: '#AA8EA0' }}>curated daily</span>
         </h1>
         <p className="text-stone-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
           StyleMind knows your wardrobe, reads the weather, and suggests five polished outfits every morning — so you never waste time getting dressed again.
@@ -40,7 +40,7 @@ export default function LandingPage() {
           <Link
             href="/signup"
             className="px-8 py-3.5 rounded-full text-white font-medium text-base shadow-md hover:opacity-90 transition-all"
-            style={{ background: '#C8956C' }}
+            style={{ background: '#AA8EA0' }}
           >
             Start for free
           </Link>
@@ -64,23 +64,31 @@ export default function LandingPage() {
               title: 'Weather-aware styling',
               desc: 'Outfits matched to the day\'s forecast — light layers for spring breezes, cozy picks for cold fronts.',
               icon: '☁️',
+              bg: '#EBF3EC',
             },
             {
               title: 'AI Stylist chat',
               desc: 'Ask StyleMind to swap a piece, change the vibe, or plan for a special occasion. It knows your wardrobe.',
               icon: '✨',
+              bg: '#F5EEF3',
             },
             {
               title: 'Week planner',
               desc: 'Generate a full Mon–Fri outfit plan in one tap. No repeat looks, always weather-appropriate.',
               icon: '📅',
+              bg: '#EDE8F5',
             },
-          ].map(({ title, desc, icon }) => (
+          ].map(({ title, desc, icon, bg }) => (
             <div
               key={title}
               className="p-6 rounded-2xl bg-white border border-stone-100 shadow-sm"
             >
-              <div className="text-3xl mb-4">{icon}</div>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4"
+                style={{ background: bg }}
+              >
+                {icon}
+              </div>
               <h3 className="font-serif text-lg font-semibold text-stone-900 mb-2">{title}</h3>
               <p className="text-stone-500 text-sm leading-relaxed">{desc}</p>
             </div>
@@ -106,7 +114,7 @@ export default function LandingPage() {
                 'Manual wardrobe management',
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <span style={{ color: '#C8956C' }}>✓</span> {f}
+                  <span style={{ color: '#7FA98A' }}>✓</span> {f}
                 </li>
               ))}
             </ul>
@@ -121,11 +129,11 @@ export default function LandingPage() {
           {/* Pro */}
           <div
             className="p-8 rounded-2xl border-2 relative overflow-hidden"
-            style={{ borderColor: '#C8956C', background: '#FDF9F6' }}
+            style={{ borderColor: '#AA8EA0', background: '#FAF6F9' }}
           >
             <div
               className="absolute top-4 right-4 text-xs font-bold px-3 py-1 rounded-full text-white"
-              style={{ background: '#C8956C' }}
+              style={{ background: '#AA8EA0' }}
             >
               POPULAR
             </div>
@@ -143,14 +151,14 @@ export default function LandingPage() {
                 'Morning outfit reminders',
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <span style={{ color: '#C8956C' }}>✓</span> {f}
+                  <span style={{ color: '#AA8EA0' }}>✓</span> {f}
                 </li>
               ))}
             </ul>
             <Link
               href="/signup"
               className="block text-center w-full py-3 rounded-full font-medium text-white transition-all text-sm hover:opacity-90"
-              style={{ background: '#C8956C' }}
+              style={{ background: '#AA8EA0' }}
             >
               Start Pro free for 7 days
             </Link>
@@ -160,7 +168,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-stone-100 py-8 text-center text-sm text-stone-400">
-        <span className="font-serif font-semibold" style={{ color: '#C8956C' }}>StyleMind</span>
+        <span className="font-serif font-semibold" style={{ color: '#AA8EA0' }}>StyleMind</span>
         {' '}· Your AI personal stylist · © 2025
       </footer>
     </div>

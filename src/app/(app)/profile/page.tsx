@@ -81,7 +81,7 @@ export default function ProfilePage() {
       <div className="flex items-center gap-4 mb-6">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold font-serif flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #C8956C, #8B5E3C)' }}
+          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
         >
           {initials}
         </div>
@@ -93,8 +93,8 @@ export default function ProfilePage() {
           <span
             className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full mt-1"
             style={{
-              background: isPro ? '#C8956C' : '#F5EDE6',
-              color: isPro ? 'white' : '#8B5E3C',
+              background: isPro ? '#AA8EA0' : '#F5EEF3',
+              color: isPro ? 'white' : '#725265',
             }}
           >
             {isPro && <Sparkles size={10} />}
@@ -113,7 +113,7 @@ export default function ProfilePage() {
       {!isPro && (
         <div
           className="rounded-2xl p-5 mb-6"
-          style={{ background: 'linear-gradient(135deg, #C8956C, #8B5E3C)' }}
+          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
         >
           <div className="flex items-start gap-3">
             <Sparkles size={20} className="text-white flex-shrink-0 mt-0.5" />
@@ -123,7 +123,7 @@ export default function ProfilePage() {
                 Unlimited items, 5 daily outfits, AI Stylist chat, week planner, and more.
               </p>
               <button className="mt-3 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
-                style={{ color: '#8B5E3C' }}
+                style={{ color: '#725265' }}
                 onClick={() => alert('Stripe integration coming soon!')}>
                 Upgrade for $9/mo
               </button>
@@ -139,7 +139,7 @@ export default function ProfilePage() {
         {/* Location */}
         <div className="bg-white rounded-2xl border border-stone-100 px-4 py-3.5">
           <div className="flex items-center gap-2 mb-1">
-            <MapPin size={14} style={{ color: '#C8956C' }} />
+            <MapPin size={14} style={{ color: '#AA8EA0' }} />
             <span className="text-xs font-medium text-stone-500 uppercase tracking-wide">Location</span>
           </div>
           {editingLocation ? (
@@ -148,7 +148,7 @@ export default function ProfilePage() {
                 value={locationInput}
                 onChange={(e) => setLocationInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && saveLocation()}
-                className="flex-1 text-sm border border-stone-200 rounded-xl px-3 py-2 outline-none focus:border-[#C8956C]"
+                className="flex-1 text-sm border border-stone-200 rounded-xl px-3 py-2 outline-none focus:border-[#AA8EA0]"
                 placeholder="New York, US"
                 autoFocus
               />
@@ -156,7 +156,7 @@ export default function ProfilePage() {
                 onClick={saveLocation}
                 disabled={saving}
                 className="text-sm font-medium px-4 py-2 rounded-xl text-white hover:opacity-80 transition-all disabled:opacity-50"
-                style={{ background: '#C8956C' }}
+                style={{ background: '#AA8EA0' }}
               >
                 {saving ? '…' : 'Save'}
               </button>
