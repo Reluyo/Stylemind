@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen" style={{ background: '#F8F5F7' }}>
+    <div className="min-h-screen relative z-10" style={{ background: 'transparent' }}>
       {/* Header */}
       <header className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
         <span className="font-serif text-xl font-bold" style={{ color: '#AA8EA0' }}>StyleMind</span>
