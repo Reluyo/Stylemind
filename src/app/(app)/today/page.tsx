@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight } from 'lucide-react'
+import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -158,7 +158,7 @@ export default function TodayPage() {
       {outfits.length > 0 && (
         <div className="space-y-3 mb-6">
           {outfits.map((outfit, i) => (
-            <OutfitCard key={i} outfit={outfit} />
+            <OutfitCard key={i} outfit={outfit} wardrobeItems={items} />
           ))}
         </div>
       )}
@@ -243,8 +243,10 @@ export default function TodayPage() {
   )
 }
 
-function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
+function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; wardrobeItems: ClothingItem[] }) {
   const [expanded, setExpanded] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const OCCASION_COLORS: Record<string, string> = {
     work: '#E5EDF5',
@@ -257,6 +259,22 @@ function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
   const oKey = outfit.occasion?.toLowerCase() ?? ''
   const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EEF3'
   const textDark = bgColor === '#251828'
+
+  async function saveOutfit(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (saved || saving) return
+    setSaving(true)
+    try {
+      await fetch('/api/outfits/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outfit, items: wardrobeItems }),
+      })
+      setSaved(true)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div
@@ -281,6 +299,18 @@ function OutfitCard({ outfit }: { outfit: AIOutfitSuggestion }) {
             </span>
           </div>
         </div>
+        <button
+          onClick={saveOutfit}
+          disabled={saving}
+          className="flex-shrink-0 p-1.5 rounded-full transition-colors hover:bg-stone-50"
+          title={saved ? 'Saved' : 'Save outfit'}
+        >
+          {saved ? (
+            <BookmarkCheck size={17} style={{ color: '#AA8EA0' }} />
+          ) : (
+            <Bookmark size={17} className={saving ? 'animate-pulse text-stone-300' : 'text-stone-300'} />
+          )}
+        </button>
         <ChevronRight
           size={16}
           className="text-stone-300 flex-shrink-0 transition-transform"
