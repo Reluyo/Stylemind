@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Luggage, ChevronRight, Package, Minus, Plus } from 'lucide-react'
+import { Sparkles, Luggage, ChevronRight, Package, Minus, Plus, Copy, Check } from 'lucide-react'
 import type { ClothingItem } from '@/lib/types'
 
 interface TripDay {
@@ -31,6 +31,7 @@ export default function TripPlannerPage() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'plan' | 'packing'>('plan')
+  const [packed, setPacked] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function load() {
@@ -57,6 +58,7 @@ export default function TripPlannerPage() {
       const data = await res.json()
       if (data.error) { setError(data.error); return }
       setPlan(data.plan ?? [])
+      setPacked(new Set())
       setActiveTab('plan')
     } catch {
       setError('Something went wrong. Try again.')
@@ -193,25 +195,17 @@ export default function TripPlannerPage() {
           )}
 
           {activeTab === 'packing' && (
-            <div
-              className="rounded-2xl p-5 border border-stone-100"
-              style={{ background: 'rgba(255,255,255,0.9)' }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Package size={18} style={{ color: '#AA8EA0' }} />
-                <h3 className="font-serif text-base font-semibold text-stone-900">
-                  Your packing list
-                </h3>
-              </div>
-              <p className="text-xs text-stone-400 mb-4">
-                {packingList.length} unique items for {days} {days === 1 ? 'day' : 'days'}
-              </p>
-              <ul className="space-y-2">
-                {packingList.map((item, i) => (
-                  <PackingItem key={i} name={item} />
-                ))}
-              </ul>
-            </div>
+            <PackingListPanel
+              packingList={packingList}
+              days={days}
+              packed={packed}
+              onToggle={(name) => setPacked((prev) => {
+                const next = new Set(prev)
+                if (next.has(name)) next.delete(name)
+                else next.add(name)
+                return next
+              })}
+            />
           )}
         </>
       )}
@@ -304,13 +298,81 @@ function TripDayCard({ tripDay }: { tripDay: TripDay }) {
   )
 }
 
-function PackingItem({ name }: { name: string }) {
-  const [checked, setChecked] = useState(false)
+function PackingListPanel({
+  packingList,
+  days,
+  packed,
+  onToggle,
+}: {
+  packingList: string[]
+  days: number
+  packed: Set<string>
+  onToggle: (name: string) => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const packedCount = packingList.filter((n) => packed.has(n)).length
+  const progress = packingList.length > 0 ? packedCount / packingList.length : 0
 
+  async function copyList() {
+    const text = packingList.map((n) => `${packed.has(n) ? '✓' : '☐'} ${n}`).join('\n')
+    await navigator.clipboard.writeText(`Packing list for ${days}-day trip:\n\n${text}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="rounded-2xl p-5 border border-stone-100" style={{ background: 'rgba(255,255,255,0.9)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Package size={18} style={{ color: '#AA8EA0' }} />
+          <h3 className="font-serif text-base font-semibold text-stone-900">Packing list</h3>
+        </div>
+        <button
+          onClick={copyList}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-stone-200 transition-all hover:bg-stone-50"
+          style={{ color: copied ? '#AA8EA0' : '#725265' }}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? 'Copied!' : 'Copy list'}
+        </button>
+      </div>
+
+      {/* Progress */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-xs text-stone-400">{packingList.length} items · {days} {days === 1 ? 'day' : 'days'}</p>
+          <span className="text-xs font-medium" style={{ color: '#AA8EA0' }}>{packedCount}/{packingList.length} packed</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-stone-100">
+          <div
+            className="h-1.5 rounded-full transition-all"
+            style={{ width: `${progress * 100}%`, background: '#AA8EA0' }}
+          />
+        </div>
+      </div>
+
+      <ul className="space-y-2">
+        {packingList.map((item, i) => (
+          <PackingItem key={i} name={item} checked={packed.has(item)} onToggle={onToggle} />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function PackingItem({
+  name,
+  checked,
+  onToggle,
+}: {
+  name: string
+  checked: boolean
+  onToggle: (name: string) => void
+}) {
   return (
     <li
       className="flex items-center gap-3 py-2 border-b border-stone-50 last:border-0 cursor-pointer"
-      onClick={() => setChecked((v) => !v)}
+      onClick={() => onToggle(name)}
     >
       <div
         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
@@ -320,7 +382,7 @@ function PackingItem({ name }: { name: string }) {
       >
         {checked && (
           <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </div>

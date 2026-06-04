@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock } from 'lucide-react'
+import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock, CheckCircle2 } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -386,6 +386,8 @@ function OutfitCard({
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [wornToday, setWornToday] = useState(false)
   const [vizState, setVizState] = useState<VizState>('idle')
   const [vizImageUrl, setVizImageUrl] = useState<string | null>(null)
   const [vizError, setVizError] = useState('')
@@ -420,11 +422,13 @@ function OutfitCard({
     if (saved || saving) return
     setSaving(true)
     try {
-      await fetch('/api/outfits/save', {
+      const res = await fetch('/api/outfits/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outfit, items: wardrobeItems }),
       })
+      const { id } = await res.json()
+      setSavedId(id ?? null)
       setSaved(true)
     } finally {
       setSaving(false)
@@ -466,6 +470,18 @@ function OutfitCard({
         setVizError(pollData.error ?? 'Generation failed')
       }
     }, 3000)
+  }
+
+  async function markWorn(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!savedId || wornToday) return
+    setWornToday(true)
+    const supabase = createClient()
+    const { data } = await supabase.from('outfits').select('times_worn').eq('id', savedId).single()
+    await supabase.from('outfits').update({
+      times_worn: (data?.times_worn ?? 0) + 1,
+      last_worn_at: new Date().toISOString(),
+    }).eq('id', savedId)
   }
 
   // Clean up polling on unmount
@@ -524,6 +540,20 @@ function OutfitCard({
           </button>
         )}
 
+        {saved && (
+          <button
+            onClick={markWorn}
+            disabled={wornToday}
+            className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all"
+            style={wornToday
+              ? { background: '#EBF3EC', color: '#5a7a5a' }
+              : { background: '#F5EEF3', color: '#725265' }}
+            title="Mark as worn today"
+          >
+            <CheckCircle2 size={12} />
+            {wornToday ? 'Worn' : 'Wore this'}
+          </button>
+        )}
         <button
           onClick={saveOutfit}
           disabled={saving}
