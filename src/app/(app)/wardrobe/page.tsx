@@ -53,7 +53,7 @@ export default function WardrobePage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('outfits')
-        .select('*')
+        .select('*, outfit_items(clothing_items(name, category))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
     ])
@@ -289,37 +289,62 @@ function ClothingCard({ item, onDelete }: { item: ClothingItem; onDelete: (id: s
   )
 }
 
-function SavedOutfitCard({ outfit, onDelete }: { outfit: Outfit; onDelete: (id: string) => void }) {
+function SavedOutfitCard({ outfit, onDelete }: { outfit: Outfit & { outfit_items?: { clothing_items: { name: string; category: string } | null }[] }; onDelete: (id: string) => void }) {
   const [confirming, setConfirming] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  const itemNames = outfit.outfit_items
+    ?.map((oi) => oi.clothing_items?.name)
+    .filter(Boolean) as string[] | undefined
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: '#F5EEF3' }}
-      >
-        <Bookmark size={16} style={{ color: '#AA8EA0' }} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-stone-800 truncate">{outfit.name}</p>
-        <p className="text-xs text-stone-400 mt-0.5 truncate">
-          {outfit.occasion ?? 'No occasion'} · {new Date(outfit.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </p>
-      </div>
-      {confirming ? (
+    <div className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-3.5 flex items-center gap-3">
         <button
-          className="text-xs text-red-500 font-medium flex-shrink-0"
-          onClick={() => onDelete(outfit.id)}
+          onClick={() => setExpanded((v) => !v)}
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:opacity-80"
+          style={{ background: '#F5EEF3' }}
         >
-          Delete
+          <Bookmark size={16} style={{ color: '#AA8EA0' }} />
         </button>
-      ) : (
-        <button
-          className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0"
-          onClick={() => setConfirming(true)}
-        >
-          <Trash2 size={14} className="text-stone-300 hover:text-red-400 transition-colors" />
-        </button>
+        <div className="flex-1 min-w-0" onClick={() => itemNames?.length && setExpanded((v) => !v)}>
+          <p className="text-sm font-semibold text-stone-800 truncate">{outfit.name}</p>
+          <p className="text-xs text-stone-400 mt-0.5 truncate">
+            {outfit.occasion ?? 'No occasion'} · {new Date(outfit.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {itemNames?.length ? ` · ${itemNames.length} items` : ''}
+          </p>
+        </div>
+        {confirming ? (
+          <button
+            className="text-xs text-red-500 font-medium flex-shrink-0"
+            onClick={() => onDelete(outfit.id)}
+          >
+            Delete
+          </button>
+        ) : (
+          <button
+            className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0"
+            onClick={() => setConfirming(true)}
+          >
+            <Trash2 size={14} className="text-stone-300 hover:text-red-400 transition-colors" />
+          </button>
+        )}
+      </div>
+
+      {expanded && itemNames && itemNames.length > 0 && (
+        <div className="px-4 pb-3 pt-0 border-t border-stone-50">
+          <div className="flex flex-wrap gap-1.5 pt-2.5">
+            {itemNames.map((name, i) => (
+              <span
+                key={i}
+                className="text-xs px-2.5 py-1 rounded-full"
+                style={{ background: '#F5EEF3', color: '#725265' }}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

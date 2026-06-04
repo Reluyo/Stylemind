@@ -22,7 +22,15 @@ export default function ProfilePage() {
   const [notifFreq, setNotifFreq] = useState<'daily' | 'weekly' | 'none'>('daily')
   const [reminderTime, setReminderTime] = useState('07:30')
   const [savingNotif, setSavingNotif] = useState(false)
+  const [stylePrefs, setStylePrefs] = useState<string[]>([])
+  const [savingStyle, setSavingStyle] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
+
+  const STYLE_OPTIONS = [
+    'Minimalist', 'Classic', 'Bohemian', 'Streetwear',
+    'Sporty', 'Feminine', 'Edgy', 'Preppy',
+    'Business Casual', 'Eclectic',
+  ]
 
   useEffect(() => {
     async function load() {
@@ -40,6 +48,7 @@ export default function ProfilePage() {
       setLocationInput(prof?.location ?? '')
       setNotifFreq(prof?.notification_frequency ?? 'daily')
       setReminderTime(prof?.morning_reminder_time ?? '07:30')
+      setStylePrefs(prof?.style_preferences ?? [])
       setLoading(false)
     }
     load()
@@ -98,6 +107,21 @@ export default function ProfilePage() {
         }
       },
       () => setDetectingLocation(false)
+    )
+  }
+
+  async function saveStylePrefs() {
+    if (!profile) return
+    setSavingStyle(true)
+    const supabase = createClient()
+    await supabase.from('profiles').update({ style_preferences: stylePrefs }).eq('id', profile.id)
+    setProfile({ ...profile, style_preferences: stylePrefs })
+    setSavingStyle(false)
+  }
+
+  function toggleStyle(s: string) {
+    setStylePrefs((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
     )
   }
 
@@ -360,6 +384,42 @@ export default function ProfilePage() {
             style={{ background: '#AA8EA0' }}
           >
             {savingNotif ? 'Saving…' : 'Save reminder'}
+          </button>
+        </div>
+      </div>
+
+      {/* Style preferences */}
+      <div className="mt-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">Style Preferences</p>
+        <div className="bg-white rounded-2xl border border-stone-100 px-4 py-3.5">
+          <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+            Pick your styles — StyleMind will tailor outfit suggestions to match.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {STYLE_OPTIONS.map((s) => {
+              const active = stylePrefs.includes(s)
+              return (
+                <button
+                  key={s}
+                  onClick={() => toggleStyle(s)}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full border transition-all"
+                  style={active
+                    ? { background: '#AA8EA0', color: 'white', borderColor: '#AA8EA0' }
+                    : { background: 'white', color: '#4a3545', borderColor: '#e7e3e6' }
+                  }
+                >
+                  {s}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={saveStylePrefs}
+            disabled={savingStyle}
+            className="w-full py-2 rounded-xl text-xs font-medium text-white transition-all hover:opacity-80 disabled:opacity-50"
+            style={{ background: '#AA8EA0' }}
+          >
+            {savingStyle ? 'Saving…' : 'Save style preferences'}
           </button>
         </div>
       </div>

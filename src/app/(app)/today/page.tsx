@@ -49,7 +49,7 @@ export default function TodayPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, location, plan, profile_photo_url')
+        .select('full_name, location, plan, profile_photo_url, style_preferences')
         .eq('id', user.id)
         .single()
 
@@ -57,6 +57,10 @@ export default function TodayPage() {
       setIsPro(profile?.plan === 'pro')
       setHasProfilePhoto(!!profile?.profile_photo_url)
       const loc = profile?.location ?? 'New York'
+      // Store style prefs so generateOutfits can use them
+      if (profile?.style_preferences?.length) {
+        sessionStorage.setItem('sm_style_prefs', JSON.stringify(profile.style_preferences))
+      }
 
       const [{ data: clothing }, weatherRes] = await Promise.all([
         supabase.from('clothing_items').select('*').eq('user_id', user.id),
@@ -109,7 +113,11 @@ export default function TodayPage() {
       const res = await fetch('/api/outfits/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, weather }),
+        body: JSON.stringify({
+          items,
+          weather,
+          stylePreferences: JSON.parse(sessionStorage.getItem('sm_style_prefs') ?? '[]'),
+        }),
       })
       const data = await res.json()
       setOutfits(data.outfits ?? [])

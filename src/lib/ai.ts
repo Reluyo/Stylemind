@@ -27,8 +27,13 @@ export function buildWeatherContext(weather: WeatherSummary): string {
 // Generate 5 outfit suggestions
 export async function generateOutfits(
   items: ClothingItem[],
-  weather: WeatherSummary
+  weather: WeatherSummary,
+  stylePreferences: string[] = []
 ): Promise<AIOutfitSuggestion[]> {
+  const styleNote = stylePreferences.length
+    ? `\n- The user's style preferences are: ${stylePreferences.join(', ')}. Lean into these aesthetics.`
+    : ''
+
   const systemPrompt = `You are StyleMind, a personal AI stylist. Given a user's wardrobe and the day's weather/context, suggest exactly 5 outfit combinations.
 
 Respond ONLY with valid JSON — no markdown, no extra text. Format:
@@ -38,7 +43,7 @@ Rules:
 - Only use items that actually exist in the wardrobe list provided.
 - Each outfit should have 2–4 items.
 - Vary the occasions (e.g. work, casual, smart casual, evening, sporty).
-- Keep reasons concise and weather/day relevant.`
+- Keep reasons concise and weather/day relevant.${styleNote}`
 
   const userMsg = `Wardrobe:\n${buildWardrobeSummary(items)}\n\nContext: ${buildWeatherContext(weather)}\n\nSuggest 5 outfits.`
 

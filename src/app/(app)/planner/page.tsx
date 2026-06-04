@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Calendar } from 'lucide-react'
+import { Sparkles, Calendar, RotateCcw } from 'lucide-react'
 import type { ClothingItem } from '@/lib/types'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
 function getWeekDates(): Date[] {
   const today = new Date()
-  const dow = today.getDay() // 0=sun, 1=mon ...
+  const dow = today.getDay()
   const monday = new Date(today)
   monday.setDate(today.getDate() - ((dow + 6) % 7))
   return DAYS.map((_, i) => {
@@ -20,8 +20,14 @@ function getWeekDates(): Date[] {
   })
 }
 
+function getWeekKey(): string {
+  const d = getWeekDates()[0]
+  return `${d.getFullYear()}-W${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function PlannerPage() {
   const router = useRouter()
+  const [userId, setUserId] = useState('')
   const [items, setItems] = useState<ClothingItem[]>([])
   const [plan, setPlan] = useState<string>('')
   const [generating, setGenerating] = useState(false)
@@ -33,8 +39,13 @@ export default function PlannerPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setUserId(user.id)
       const { data } = await supabase.from('clothing_items').select('*').eq('user_id', user.id)
       setItems(data ?? [])
+
+      // Restore cached plan for this week
+      const cached = localStorage.getItem(`stylemind_weekplan_${user.id}_${getWeekKey()}`)
+      if (cached) setPlan(cached)
     }
     load()
   }, [router])
@@ -77,8 +88,18 @@ export default function PlannerPage() {
       body: JSON.stringify({ items, weekContext }),
     })
     const data = await res.json()
-    setPlan(data.plan ?? '')
+    const newPlan = data.plan ?? ''
+    setPlan(newPlan)
+    if (newPlan && userId) {
+      localStorage.setItem(`stylemind_weekplan_${userId}_${getWeekKey()}`, newPlan)
+    }
     setGenerating(false)
+  }
+
+  function clearPlan() {
+    setPlan('')
+    setParsedPlan({})
+    if (userId) localStorage.removeItem(`stylemind_weekplan_${userId}_${getWeekKey()}`)
   }
 
   const today = new Date()
@@ -94,15 +115,26 @@ export default function PlannerPage() {
             {weekDates[4].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </p>
         </div>
-        <button
-          onClick={generatePlan}
-          disabled={generating || !items.length}
-          className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all disabled:opacity-50"
-          style={{ background: '#AA8EA0' }}
-        >
-          <Sparkles size={14} />
-          {generating ? 'Planning…' : 'Generate'}
-        </button>
+        <div className="flex items-center gap-2">
+          {plan && !generating && (
+            <button
+              onClick={clearPlan}
+              className="p-2 rounded-full text-stone-400 hover:bg-stone-100 transition-all"
+              title="Clear plan"
+            >
+              <RotateCcw size={14} />
+            </button>
+          )}
+          <button
+            onClick={generatePlan}
+            disabled={generating || !items.length}
+            className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all disabled:opacity-50"
+            style={{ background: '#AA8EA0' }}
+          >
+            <Sparkles size={14} />
+            {generating ? 'Planning…' : plan ? 'Regenerate' : 'Generate'}
+          </button>
+        </div>
       </div>
 
       {!items.length && (
