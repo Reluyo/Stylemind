@@ -1,84 +1,108 @@
-# StyleMind — Claude Code Handoff
+# Stylemind — Development Handoff
 
-## What this project is
-StyleMind is an AI-powered outfit planning app. Users upload photos of their clothing items, and the app recommends daily outfits based on weather, season, and day of week. Built with Next.js 14, Supabase, and the Anthropic API.
+## Repo
+- **GitHub:** https://github.com/Reluyo/Stylemind
+- **Default branch:** `main`
+- **Push via:** `git push "https://Claude:<YOUR_GITHUB_TOKEN>@github.com/Reluyo/Stylemind.git" <branch>`
+  *(Generate a token at GitHub → Settings → Developer Settings → Personal Access Tokens → Fine-grained, with repo write access)*
 
-## What's already been built (in claude.ai chat)
-- ✅ Full clickable prototype (all screens)
-- ✅ Supabase project created and live
-- ✅ All database migrations applied and working
-- ✅ Anthropic API wired for outfit generation, stylist chat, and week planner
-- ✅ Auth (signup/login/signout) via Supabase Auth
-- ✅ Demo wardrobe seed function (24 items auto-created for new users)
+## Stack
+- **Framework:** Next.js 14 (App Router, TypeScript)
+- **Styling:** Tailwind CSS — colors: `#AA8EA0` (mauve), `#725265` (dark mauve), `#F5EEF3` (light blush)
+- **Database/Auth:** Supabase (PostgreSQL + RLS)
+  - URL: https://yhazjbywrvzqwvgtcecp.supabase.co
+  - Project ID: yhazjbywrvzqwvgtcecp
+  - Anon key + env vars already in `.env.local`
+- **AI:** Anthropic Claude SDK (`@anthropic-ai/sdk`)
+- **Mobile-first:** max-width 430px container
 
-## Supabase project
-- **URL:** https://yhazjbywrvzqwvgtcecp.supabase.co
-- **Project ID:** yhazjbywrvzqwvgtcecp
-- **Anon key:** in .env.local (already filled in)
-- **Status:** ACTIVE_HEALTHY, all migrations applied
-
-## Database schema (all live, RLS enabled)
-- `profiles` — extends auth.users, has plan (free/pro), style_preferences, location
-- `clothing_items` — wardrobe items with category, color, season, tags, image_url
-- `outfits` — saved outfit combinations, ai_generated flag, try_on_image_url
-- `outfit_items` — junction table linking outfits ↔ clothing_items
-- `planned_outfits` — week planner, one outfit per user per date
-- `daily_recommendations` — AI recommendation log with weather_summary jsonb
-- `outfits_with_items` — view joining outfits with their items
-
-## Key functions in Supabase
-- `seed_demo_wardrobe(p_user_id uuid)` — seeds 24 demo clothing items for new users
-- `set_updated_at()` — trigger to auto-update updated_at on all tables
-- `handle_new_user()` — trigger to auto-create profile on auth.users insert
-
-## App screens
-1. **Landing** — marketing page with plan comparison (Free vs Pro)
-2. **Sign up / Login** — Supabase Auth
-3. **Today (Home)** — weather bar, AI-generated outfit cards (5), AI stylist chat, refine chips
-4. **Wardrobe** — clothing grid with search, category filter, sort, upload tile
-5. **Planner** — Mon–Fri week view, AI week plan generation
-6. **Profile** — user stats, settings, upgrade prompt
-
-## Subscription tiers
-- **Free:** up to 30 items, 3 daily outfits, manual wardrobe, weather-aware
-- **Pro ($9/mo):** unlimited items, 5 daily outfits, AI try-on images, full week planner, AI style chat
-
-## API routes to build
-- `POST /api/outfits/generate` — generate 5 outfit suggestions (uses wardrobe + weather)
-- `POST /api/stylist/chat` — streaming stylist chat response
-- `POST /api/planner/week` — generate full week outfit plan
-- `POST /api/wardrobe/upload` — upload clothing item image to Supabase Storage (TODO)
-
-## What to build next (priority order)
-1. **Complete the Next.js app** — turn the scaffolded files into full working pages with proper routing
-2. **Clothing photo uploads** — Supabase Storage bucket "wardrobe-images", drag-and-drop UI, auto-AI tagging (category/color detection from image)
-3. **Outfit save flow** — save AI-generated outfits to the outfits table with their items
-4. **Stripe integration** — Free → Pro upgrade, webhook to update profiles.plan
-5. **AI try-on** — Pro feature: generate an image of the user wearing the outfit using their profile photo
-6. **Week planner persistence** — save planned outfits to planned_outfits table
-7. **Push notifications** — morning outfit reminder at user's preferred time
-
-## Design system
-- Font: DM Sans (body) + Playfair Display (headings)
-- Brand color: #C8956C (warm terracotta)
-- Brand light: #F5EDE6
-- Brand dark: #8B5E3C
-- Background: #FAF7F4
-- Aesthetic: warm, editorial, refined — think premium fashion app, not generic SaaS
-
-## How to get started in Claude Code
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Add your Anthropic API key to .env.local
-# ANTHROPIC_API_KEY=sk-ant-...  ← get from console.anthropic.com
-
-# 3. Start the dev server
-npm run dev
-
-# 4. Open http://localhost:3000
+## App Structure
+```
+src/app/
+  (app)/          <- protected routes (require auth)
+    today/        <- AI outfit generation, weather, stylist chat, wear tracking
+    wardrobe/     <- clothing items + saved outfits + stats tabs
+    planner/      <- Mon-Fri week planner
+    trip-planner/ <- packing list generator
+    profile/      <- user settings, plan badge, upgrade CTA, device location
+  (auth)/
+    login/
+    signup/       <- auto-seeds 24 demo wardrobe items on signup
+  api/
+    outfits/generate  <- Claude: generates outfit suggestions
+    outfits/save      <- saves outfit to DB
+    outfits/visualize <- Replicate: AI try-on image (Pro only)
+    stylist/chat      <- Claude: streaming stylist chat
+    planner/week      <- Claude: Mon-Fri outfit plan
+    planner/trip      <- Claude: packing list
+    wardrobe/analyze  <- Claude Haiku: clothing photo analysis
+    weather/          <- Open-Meteo: weather summary
+src/components/
+  BottomNav.tsx
+  HamburgerMenu.tsx
+  AddItemModal.tsx
+  ShareOutfitModal.tsx
+  ads/
+    BetweenOutfitsAd.tsx   <- shown between outfit cards (free users only)
+    WardrobeFooterAd.tsx   <- "Discover New Pieces" grid (free users only)
+    StylistStripAd.tsx     <- horizontal chips above chat (free users only)
+src/lib/
+  ads-config.ts   <- Amazon Associates config — INACTIVE until launch
+  types.ts
+  supabase.ts
+  ai.ts
 ```
 
-Then tell Claude Code:
-> "Continue building StyleMind. Start by completing the Today screen with real Supabase data and the AI outfit generation flow. The scaffolding is already in place — see HANDOFF.md for full context."
+## Subscription Tiers
+- **Free:** 30 wardrobe items, 3 daily outfits, no AI stylist, no planner, no try-on
+- **Pro ($9/mo):** unlimited items, 5 outfits, stylist chat, week planner, AI try-on images
+- Plan stored in `profiles.plan` ('free' | 'pro') in Supabase
+- **Stripe: NOT YET BUILT** — upgrade button shows alert('Stripe coming soon')
+
+## Ads System (Free Tier)
+- Config: `src/lib/ads-config.ts`
+- Currently INACTIVE (`ACTIVE: false`) — links go to Amazon search, no commission
+- To activate after Amazon Associates approval:
+  1. Set `ACTIVE: true`
+  2. Replace `ASSOCIATE_TAG: 'stylemind-20'` with your real tag
+  3. Replace placeholder ASINs (B08XXXX001 etc.) with real ASINs from Amazon SiteStripe
+- Products rotate daily via day-index (no API call needed)
+- All ad components are gated: only shown when `!isPro`
+
+## Database
+Tables (all RLS-enabled): profiles, clothing_items, outfits, outfit_items, planned_outfits, daily_recommendations
+Migrations: supabase/migrations/
+Key helpers: seed_demo_wardrobe(), handle_new_user() trigger, set_updated_at() trigger
+
+## What's Done
+- [x] Full auth flow (signup/login/signout)
+- [x] AI outfit generation with weather context + style preferences
+- [x] AI stylist chat (streaming, shown after outfits generated)
+- [x] Week planner + trip packing list
+- [x] Clothing upload modal (AddItemModal) + AI photo analysis (Haiku)
+- [x] Outfit saving, favorites, wear tracking ("Wore this" button)
+- [x] Wardrobe stats tab (category bars, seasonal gaps, most worn)
+- [x] Outfit sharing (Web Share API + clipboard fallback)
+- [x] AI try-on visualization (Pro only, via Replicate, polls for result)
+- [x] Weather alert for planned outfits (once per day, localStorage-gated)
+- [x] Style preferences + device location on profile page
+- [x] Morning reminder time setting (DB column exists, UI built)
+- [x] Free tier ad system (Amazon Associates, inactive pending approval)
+- [x] Hamburger menu component
+
+## What's Pending
+- [ ] Stripe — Pro upgrade flow (button in profile/page.tsx, needs wiring)
+- [ ] Activate ads — set Associate tag after Amazon Associates approval
+- [ ] Push notifications — morning reminder (DB has morning_reminder_time, UI built, not wired to actual notifications)
+- [ ] Wardrobe image storage — AddItemModal UI exists, Supabase Storage bucket may need confirming
+
+## Design System
+- Fonts: DM Sans (body) + Playfair Display (serif headings)
+- Primary: #AA8EA0 | Dark: #725265 | Light bg: #F5EEF3
+- Aesthetic: muted, feminine-leaning, editorial — premium fashion app
+- Mobile-first, max-width 430px
+
+## Starting a New Session
+1. Create a new branch: git checkout -b claude/<session-name>
+2. Tell Claude: "Continue building Stylemind. Read HANDOFF.md for full context."
+3. When done: merge branch into main and push using the token in this file
