@@ -13,6 +13,7 @@ export interface Profile {
   profile_photo_url: string | null
   viz_count: number
   viz_reset_month: string
+  notification_frequency: 'daily' | 'weekly' | 'none'
   created_at: string
   updated_at: string
 }

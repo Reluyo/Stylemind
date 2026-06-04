@@ -89,102 +89,112 @@ export default function WardrobePage() {
   }
 
   return (
-    <div className="px-4 pt-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-stone-900">Wardrobe</h1>
-          <p className="text-xs text-stone-400 mt-0.5">{items.length} items · {savedOutfits.length} outfits</p>
+    <div className="flex flex-col px-4 pt-6" style={{ height: 'calc(100vh - 5rem)' }}>
+
+      {/* ── Fixed header ── */}
+      <div className="flex-shrink-0">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-stone-900">Wardrobe</h1>
+            <p className="text-xs text-stone-400 mt-0.5">{items.length} items · {savedOutfits.length} outfits</p>
+          </div>
+          {tab === 'items' && (
+            <button
+              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
+              style={{ background: '#AA8EA0' }}
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus size={14} />
+              Add item
+            </button>
+          )}
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-xl mb-4" style={{ background: '#F5EEF3' }}>
+          {(['items', 'outfits'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
+                tab === t ? 'bg-white shadow-sm text-stone-900' : 'text-stone-500'
+              }`}
+            >
+              {t === 'items' ? `Clothes (${items.length})` : `Outfits (${savedOutfits.length})`}
+            </button>
+          ))}
+        </div>
+
         {tab === 'items' && (
-          <button
-            className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
-            style={{ background: '#AA8EA0' }}
-            onClick={() => setShowAddModal(true)}
-          >
-            <Plus size={14} />
-            Add item
-          </button>
+          <>
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, color, tag…"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white"
+              />
+            </div>
+
+            {/* Category filter */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-3">
+              {CATEGORIES.map(({ label, value }) => (
+                <button
+                  key={value}
+                  onClick={() => setCategory(value)}
+                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    category === value
+                      ? 'text-white'
+                      : 'bg-white border border-stone-200 text-stone-600 hover:border-stone-300'
+                  }`}
+                  style={category === value ? { background: '#AA8EA0' } : {}}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl mb-4" style={{ background: '#F5EEF3' }}>
-        {(['items', 'outfits'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
-              tab === t ? 'bg-white shadow-sm text-stone-900' : 'text-stone-500'
-            }`}
-          >
-            {t === 'items' ? `Clothes (${items.length})` : `Outfits (${savedOutfits.length})`}
-          </button>
-        ))}
-      </div>
+      {/* ── Scrollable content ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {tab === 'items' && (
+          <>
+            {loading && (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-stone-100 animate-pulse h-40" />
+                ))}
+              </div>
+            )}
 
-      {tab === 'items' && (
-        <>
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, color, tag…"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white"
-            />
-          </div>
+            {!loading && filtered.length === 0 && (
+              <div className="text-center py-16 text-stone-400">
+                <Shirt size={40} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">
+                  {search || category !== 'all' ? 'No items match your filter.' : 'Your wardrobe is empty.'}
+                </p>
+                {!search && category === 'all' && (
+                  <p className="text-xs mt-1">Tap <strong>Add item</strong> to get started.</p>
+                )}
+              </div>
+            )}
 
-          {/* Category filter */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4">
-            {CATEGORIES.map(({ label, value }) => (
-              <button
-                key={value}
-                onClick={() => setCategory(value)}
-                className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  category === value
-                    ? 'text-white'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:border-stone-300'
-                }`}
-                style={category === value ? { background: '#AA8EA0' } : {}}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+            {!loading && filtered.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 pt-1 pb-4">
+                {filtered.map((item) => (
+                  <ClothingCard key={item.id} item={item} onDelete={deleteItem} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-          {loading && (
-            <div className="grid grid-cols-2 gap-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="rounded-2xl bg-stone-100 animate-pulse h-40" />
-              ))}
-            </div>
-          )}
-
-          {!loading && filtered.length === 0 && (
-            <div className="text-center py-16 text-stone-400">
-              <Shirt size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                {search || category !== 'all' ? 'No items match your filter.' : 'Your wardrobe is empty.'}
-              </p>
-              {!search && category === 'all' && (
-                <p className="text-xs mt-1">Tap <strong>Add item</strong> to get started.</p>
-              )}
-            </div>
-          )}
-
-          {!loading && filtered.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 pb-4">
-              {filtered.map((item) => (
-                <ClothingCard key={item.id} item={item} onDelete={deleteItem} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === 'outfits' && (
-        <div className="space-y-3 pb-4">
+        {tab === 'outfits' && (
+          <div className="space-y-3 pb-4">
           {loading && [...Array(3)].map((_, i) => (
             <div key={i} className="h-16 rounded-2xl bg-stone-100 animate-pulse" />
           ))}
@@ -202,6 +212,8 @@ export default function WardrobePage() {
           ))}
         </div>
       )}
+
+      </div>{/* end scrollable */}
 
       {showAddModal && userId && (
         <AddItemModal

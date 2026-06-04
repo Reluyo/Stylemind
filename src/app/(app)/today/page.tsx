@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2 } from 'lucide-react'
+import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -38,6 +38,7 @@ export default function TodayPage() {
   const [streamingText, setStreamingText] = useState('')
   const [isPro, setIsPro] = useState(false)
   const [hasProfilePhoto, setHasProfilePhoto] = useState(false)
+  const [plannedOutfitAlert, setPlannedOutfitAlert] = useState<{ outfitName: string; message: string; type: 'rain' | 'cold' | 'hot' } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -61,8 +62,41 @@ export default function TodayPage() {
         supabase.from('clothing_items').select('*').eq('user_id', user.id),
         fetch(`/api/weather?location=${encodeURIComponent(loc)}`),
       ])
+      const weatherData: WeatherSummary = await weatherRes.json()
       setItems(clothing ?? [])
-      setWeather(await weatherRes.json())
+      setWeather(weatherData)
+
+      // Once-per-day planned outfit weather check
+      const today = new Date().toISOString().slice(0, 10)
+      const cacheKey = `outfit_weather_check_${user.id}_${today}`
+      if (!localStorage.getItem(cacheKey)) {
+        const { data: planned } = await supabase
+          .from('planned_outfits')
+          .select('outfit_id, outfits(name)')
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .maybeSingle()
+
+        if (planned?.outfit_id) {
+          const cond = weatherData.condition.toLowerCase()
+          const temp = weatherData.temp_f
+          // Supabase may return joined row as object or single-element array
+          const outfitsRow = planned.outfits as unknown as { name: string } | { name: string }[] | null
+          const outfitName = (Array.isArray(outfitsRow) ? outfitsRow[0]?.name : outfitsRow?.name) ?? 'your planned outfit'
+          let alert: typeof plannedOutfitAlert = null
+          if (cond.includes('rain') || cond.includes('drizzle') || cond.includes('shower')) {
+            alert = { outfitName, message: 'Rain expected — consider waterproof shoes or an umbrella.', type: 'rain' }
+          } else if (temp < 45) {
+            alert = { outfitName, message: `Only ${temp}°F today — your planned outfit may need an extra layer.`, type: 'cold' }
+          } else if (temp > 88) {
+            alert = { outfitName, message: `${temp}°F today — your planned outfit might be too warm.`, type: 'hot' }
+          }
+          if (alert) {
+            setPlannedOutfitAlert(alert)
+            localStorage.setItem(cacheKey, '1')
+          }
+        }
+      }
     }
     init()
   }, [router])
@@ -116,9 +150,6 @@ export default function TodayPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
 
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
   // Pick items to suggest: season-matching first, then fallback to first 6
   const currentSeason = weather?.season ?? ''
   const suggestedItems = [
@@ -130,9 +161,11 @@ export default function TodayPage() {
     <div className="px-4 pt-6">
       {/* Header — leaves space for hamburger button on the right */}
       <div className="mb-5 pr-10">
-        <p className="text-stone-400 text-sm">{greeting}</p>
+        <p className="text-stone-400 text-sm">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
         <h1 className="font-serif text-2xl font-bold text-stone-900">
-          {userName ? `${greeting}, ${userName}` : greeting}
+          {userName ? `What will we wear today, ${userName}?` : 'What will we wear today?'}
         </h1>
       </div>
 
@@ -150,6 +183,26 @@ export default function TodayPage() {
             <p className="text-xs text-stone-400">{weather.location} · {weather.season}</p>
           </div>
           <ChevronRight size={14} className="text-stone-300" />
+        </div>
+      )}
+
+      {/* Planned outfit weather alert */}
+      {plannedOutfitAlert && (
+        <div
+          className="flex items-start gap-3 px-4 py-3 rounded-2xl mb-5 border"
+          style={{
+            background: plannedOutfitAlert.type === 'rain' ? '#EBF3EC' : plannedOutfitAlert.type === 'cold' ? '#EDE8F5' : '#F5EEE8',
+            borderColor: plannedOutfitAlert.type === 'rain' ? '#A8BAA8' : plannedOutfitAlert.type === 'cold' ? '#AA8EA0' : '#C8A882',
+          }}
+        >
+          <span className="text-lg flex-shrink-0">
+            {plannedOutfitAlert.type === 'rain' ? '🌧️' : plannedOutfitAlert.type === 'cold' ? '🧥' : '☀️'}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-stone-700 truncate">Planned: {plannedOutfitAlert.outfitName}</p>
+            <p className="text-xs text-stone-600 mt-0.5 leading-relaxed">{plannedOutfitAlert.message}</p>
+          </div>
+          <button onClick={() => setPlannedOutfitAlert(null)} className="text-stone-400 hover:text-stone-600 flex-shrink-0 text-xs">✕</button>
         </div>
       )}
 
@@ -437,17 +490,29 @@ function OutfitCard({
           </div>
         </div>
 
-        {/* Try on button — Pro only */}
-        {canTryOn && (
+        {/* Try on button — Pro or locked */}
+        {isPro ? (
+          canTryOn && (
+            <button
+              onClick={startVisualization}
+              disabled={vizState === 'loading'}
+              className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: '#EDE8F5', color: '#725265' }}
+              title="Try on this outfit"
+            >
+              <Wand2 size={12} className={vizState === 'loading' ? 'animate-pulse' : ''} />
+              {vizState === 'loading' ? 'Generating…' : 'Try on'}
+            </button>
+          )
+        ) : (
           <button
-            onClick={startVisualization}
-            disabled={vizState === 'loading'}
-            className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+            disabled
+            className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full opacity-40 cursor-not-allowed"
             style={{ background: '#EDE8F5', color: '#725265' }}
-            title="Try on this outfit"
+            title="Upgrade to Pro to try on outfits"
           >
-            <Wand2 size={12} className={vizState === 'loading' ? 'animate-pulse' : ''} />
-            {vizState === 'loading' ? 'Generating…' : 'Try on'}
+            <Lock size={12} />
+            Try on
           </button>
         )}
 
@@ -502,18 +567,11 @@ function OutfitCard({
             <p className="mt-3 text-xs text-red-400 bg-red-50 px-3 py-2 rounded-xl">{vizError}</p>
           )}
 
-          {/* Nudge for free users or missing photo */}
+          {/* Nudge for pro users missing a profile photo */}
           {isPro && !hasProfilePhoto && hasGarmentPhoto && (
             <p className="mt-3 text-xs text-stone-400 bg-stone-50 px-3 py-2 rounded-xl">
               Upload a profile photo to try on outfits →{' '}
               <a href="/profile" className="underline" style={{ color: '#AA8EA0' }}>Profile</a>
-            </p>
-          )}
-          {!isPro && (
-            <p className="mt-3 text-xs text-stone-400 bg-stone-50 px-3 py-2 rounded-xl">
-              <span style={{ color: '#AA8EA0' }} className="font-medium">Pro feature:</span>{' '}
-              Try on outfits virtually using your photo.{' '}
-              <a href="/profile" className="underline" style={{ color: '#AA8EA0' }}>Upgrade</a>
             </p>
           )}
         </div>

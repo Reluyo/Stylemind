@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon } from 'lucide-react'
+import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon, LocateFixed, Bell, Lock } from 'lucide-react'
 import type { Profile } from '@/lib/types'
 
 const VIZ_LIMIT = 40
@@ -18,6 +18,10 @@ export default function ProfilePage() {
   const [locationInput, setLocationInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [detectingLocation, setDetectingLocation] = useState(false)
+  const [notifFreq, setNotifFreq] = useState<'daily' | 'weekly' | 'none'>('daily')
+  const [reminderTime, setReminderTime] = useState('07:30')
+  const [savingNotif, setSavingNotif] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -34,6 +38,8 @@ export default function ProfilePage() {
       setProfile(prof)
       setItemCount(count ?? 0)
       setLocationInput(prof?.location ?? '')
+      setNotifFreq(prof?.notification_frequency ?? 'daily')
+      setReminderTime(prof?.morning_reminder_time ?? '07:30')
       setLoading(false)
     }
     load()
@@ -66,6 +72,45 @@ export default function ProfilePage() {
     setProfile({ ...profile, location: locationInput })
     setEditingLocation(false)
     setSaving(false)
+  }
+
+  async function detectLocation() {
+    if (!navigator.geolocation) return
+    setDetectingLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`
+          )
+          const data = await res.json()
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || ''
+          const country = data.address?.country_code?.toUpperCase() ?? ''
+          const loc = city && country ? `${city}, ${country}` : city || 'Unknown'
+          setLocationInput(loc)
+          if (profile) {
+            const supabase = createClient()
+            await supabase.from('profiles').update({ location: loc }).eq('id', profile.id)
+            setProfile({ ...profile, location: loc })
+          }
+        } finally {
+          setDetectingLocation(false)
+        }
+      },
+      () => setDetectingLocation(false)
+    )
+  }
+
+  async function saveNotifSettings() {
+    if (!profile) return
+    setSavingNotif(true)
+    const supabase = createClient()
+    await supabase.from('profiles').update({
+      notification_frequency: notifFreq,
+      morning_reminder_time: reminderTime,
+    }).eq('id', profile.id)
+    setProfile({ ...profile, notification_frequency: notifFreq, morning_reminder_time: reminderTime })
+    setSavingNotif(false)
   }
 
   async function signOut() {
@@ -130,25 +175,6 @@ export default function ProfilePage() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard label="Wardrobe items" value={itemCount} />
         <StatCard label="Plan" value={isPro ? 'Pro' : 'Free'} />
-        {isPro && (
-          <div className="col-span-2 bg-white rounded-2xl border border-stone-100 px-4 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-stone-400">Try-on visualizations this month</p>
-              <span className="text-xs font-medium" style={{ color: '#AA8EA0' }}>
-                {profile?.viz_count ?? 0} / {VIZ_LIMIT}
-              </span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-stone-100">
-              <div
-                className="h-1.5 rounded-full transition-all"
-                style={{
-                  background: '#AA8EA0',
-                  width: `${Math.min(100, ((profile?.viz_count ?? 0) / VIZ_LIMIT) * 100)}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Upgrade banner (free users) */}
@@ -174,57 +200,79 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Try-on photo (Pro only) */}
-      {isPro && (
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">Outfit Visualization</p>
-          <div className="bg-white rounded-2xl border border-stone-100 p-4">
-            <p className="text-xs text-stone-500 mb-3 leading-relaxed">
-              Upload a full-body photo of yourself to try outfits on virtually.
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-stone-100">
-                {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt="Your photo" className="w-full h-full object-cover" />
+      {/* Try-on photo */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">Outfit Visualization</p>
+        <div className={`bg-white rounded-2xl border border-stone-100 p-4 ${!isPro ? 'opacity-60' : ''}`}>
+          {!isPro && (
+            <div className="flex items-center gap-2 mb-2">
+              <Lock size={13} style={{ color: '#AA8EA0' }} />
+              <span className="text-xs font-semibold" style={{ color: '#AA8EA0' }}>Pro feature — upgrade to unlock</span>
+            </div>
+          )}
+          <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+            Upload a full-body photo of yourself to try outfits on virtually.
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-stone-100">
+              {profile?.profile_photo_url ? (
+                <img src={profile.profile_photo_url} alt="Your photo" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: '#F5EEF3' }}>
+                  <ImageIcon size={24} style={{ color: '#AA8EA0', opacity: 0.5 }} />
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={!isPro}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadProfilePhoto(f)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                onClick={() => isPro && photoRef.current?.click()}
+                disabled={uploadingPhoto || !isPro}
+                className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all hover:opacity-80 disabled:opacity-50"
+                style={{ background: '#F5EEF3', color: '#725265' }}
+              >
+                {uploadingPhoto ? (
+                  <Loader2 size={14} className="animate-spin" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: '#F5EEF3' }}>
-                    <ImageIcon size={24} style={{ color: '#AA8EA0', opacity: 0.5 }} />
-                  </div>
+                  <Camera size={14} />
                 )}
-              </div>
-              <div className="flex-1">
-                <input
-                  ref={photoRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) uploadProfilePhoto(f)
-                    e.target.value = ''
-                  }}
-                />
-                <button
-                  onClick={() => photoRef.current?.click()}
-                  disabled={uploadingPhoto}
-                  className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all hover:opacity-80 disabled:opacity-50"
-                  style={{ background: '#F5EEF3', color: '#725265' }}
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Camera size={14} />
-                  )}
-                  {profile?.profile_photo_url ? 'Replace photo' : 'Upload photo'}
-                </button>
-                <p className="text-xs text-stone-400 mt-1.5">
-                  Full-body photo works best
-                </p>
-              </div>
+                {profile?.profile_photo_url ? 'Replace photo' : 'Upload photo'}
+              </button>
+              <p className="text-xs text-stone-400 mt-1.5">Full-body photo works best</p>
             </div>
           </div>
+          {isPro && (
+            <div className="mt-3 pt-3 border-t border-stone-50">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs text-stone-400">Visualizations this month</p>
+                <span className="text-xs font-medium" style={{ color: '#AA8EA0' }}>
+                  {profile?.viz_count ?? 0} / {VIZ_LIMIT}
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-stone-100">
+                <div
+                  className="h-1.5 rounded-full transition-all"
+                  style={{
+                    background: '#AA8EA0',
+                    width: `${Math.min(100, ((profile?.viz_count ?? 0) / VIZ_LIMIT) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Settings */}
       <div className="space-y-3">
@@ -258,14 +306,61 @@ export default function ProfilePage() {
           ) : (
             <div className="flex items-center justify-between mt-1">
               <span className="text-sm text-stone-700">{profile?.location || 'Not set'}</span>
-              <button
-                onClick={() => setEditingLocation(true)}
-                className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors"
-              >
-                <Edit2 size={13} className="text-stone-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={detectLocation}
+                  disabled={detectingLocation}
+                  className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors"
+                  title="Use device location"
+                >
+                  {detectingLocation ? <Loader2 size={13} className="text-stone-400 animate-spin" /> : <LocateFixed size={13} className="text-stone-400" />}
+                </button>
+                <button onClick={() => setEditingLocation(true)} className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors">
+                  <Edit2 size={13} className="text-stone-400" />
+                </button>
+              </div>
             </div>
           )}
+        </div>
+
+        {/* Notifications */}
+        <div className="bg-white rounded-2xl border border-stone-100 px-4 py-3.5">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell size={14} style={{ color: '#AA8EA0' }} />
+            <span className="text-xs font-medium text-stone-500 uppercase tracking-wide">Morning reminder</span>
+          </div>
+          {/* Frequency */}
+          <div className="flex gap-2 mb-3">
+            {(['daily', 'weekly', 'none'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setNotifFreq(f)}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-all capitalize ${
+                  notifFreq === f ? 'text-white' : 'bg-stone-50 border border-stone-200 text-stone-600'
+                }`}
+                style={notifFreq === f ? { background: '#AA8EA0' } : {}}
+              >
+                {f === 'none' ? 'Off' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+          {/* Time picker — only when not off */}
+          {notifFreq !== 'none' && (
+            <input
+              type="time"
+              value={reminderTime}
+              onChange={(e) => setReminderTime(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors mb-3"
+            />
+          )}
+          <button
+            onClick={saveNotifSettings}
+            disabled={savingNotif}
+            className="w-full py-2 rounded-xl text-xs font-medium text-white transition-all hover:opacity-80 disabled:opacity-50"
+            style={{ background: '#AA8EA0' }}
+          >
+            {savingNotif ? 'Saving…' : 'Save reminder'}
+          </button>
         </div>
       </div>
 
