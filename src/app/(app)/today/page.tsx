@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck } from 'lucide-react'
+import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2 } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -36,6 +36,8 @@ export default function TodayPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [isPro, setIsPro] = useState(false)
+  const [hasProfilePhoto, setHasProfilePhoto] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,11 +48,13 @@ export default function TodayPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, location')
+        .select('full_name, location, plan, profile_photo_url')
         .eq('id', user.id)
         .single()
 
       setUserName(profile?.full_name?.split(' ')[0] ?? '')
+      setIsPro(profile?.plan === 'pro')
+      setHasProfilePhoto(!!profile?.profile_photo_url)
       const loc = profile?.location ?? 'New York'
 
       const [{ data: clothing }, weatherRes] = await Promise.all([
@@ -170,7 +174,7 @@ export default function TodayPage() {
       {outfits.length > 0 ? (
         <div className="space-y-3 mb-6">
           {outfits.map((outfit, i) => (
-            <OutfitCard key={i} outfit={outfit} wardrobeItems={items} />
+            <OutfitCard key={i} outfit={outfit} wardrobeItems={items} isPro={isPro} hasProfilePhoto={hasProfilePhoto} />
           ))}
         </div>
       ) : !generating ? (
@@ -305,10 +309,26 @@ export default function TodayPage() {
   )
 }
 
-function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; wardrobeItems: ClothingItem[] }) {
+type VizState = 'idle' | 'loading' | 'done' | 'error'
+
+function OutfitCard({
+  outfit,
+  wardrobeItems,
+  isPro,
+  hasProfilePhoto,
+}: {
+  outfit: AIOutfitSuggestion
+  wardrobeItems: ClothingItem[]
+  isPro: boolean
+  hasProfilePhoto: boolean
+}) {
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [vizState, setVizState] = useState<VizState>('idle')
+  const [vizImageUrl, setVizImageUrl] = useState<string | null>(null)
+  const [vizError, setVizError] = useState('')
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const OCCASION_COLORS: Record<string, string> = {
     work: '#E5EDF5',
@@ -321,6 +341,18 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
   const oKey = outfit.occasion?.toLowerCase() ?? ''
   const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EEF3'
   const textDark = bgColor === '#251828'
+
+  // Check if any outfit item has a wardrobe photo (try-on requires garment image)
+  const hasGarmentPhoto = outfit.items.some((name) =>
+    wardrobeItems.some(
+      (wi) =>
+        (wi.thumbnail_url || wi.image_url) &&
+        ['tops', 'bottoms', 'dresses', 'outerwear'].includes(wi.category) &&
+        (wi.name.toLowerCase() === name.toLowerCase() ||
+          wi.name.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(wi.name.toLowerCase()))
+    )
+  )
 
   async function saveOutfit(e: React.MouseEvent) {
     e.stopPropagation()
@@ -337,6 +369,48 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
       setSaving(false)
     }
   }
+
+  async function startVisualization(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (vizState === 'loading') return
+    setVizState('loading')
+    setVizError('')
+    setVizImageUrl(null)
+    if (!expanded) setExpanded(true)
+
+    const res = await fetch('/api/outfits/visualize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outfitItemNames: outfit.items, wardrobeItems }),
+    })
+    const data = await res.json()
+
+    if (!res.ok) {
+      setVizState('error')
+      setVizError(data.error ?? 'Visualization failed')
+      return
+    }
+
+    const { predictionId } = data
+    pollRef.current = setInterval(async () => {
+      const pollRes = await fetch(`/api/outfits/visualize?id=${predictionId}`)
+      const pollData = await pollRes.json()
+      if (pollData.status === 'succeeded') {
+        clearInterval(pollRef.current!)
+        setVizImageUrl(pollData.imageUrl)
+        setVizState('done')
+      } else if (pollData.status === 'failed') {
+        clearInterval(pollRef.current!)
+        setVizState('error')
+        setVizError(pollData.error ?? 'Generation failed')
+      }
+    }, 3000)
+  }
+
+  // Clean up polling on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
+
+  const canTryOn = isPro && hasProfilePhoto && hasGarmentPhoto
 
   return (
     <div
@@ -362,6 +436,21 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
             </span>
           </div>
         </div>
+
+        {/* Try on button — Pro only */}
+        {canTryOn && (
+          <button
+            onClick={startVisualization}
+            disabled={vizState === 'loading'}
+            className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+            style={{ background: '#EDE8F5', color: '#725265' }}
+            title="Try on this outfit"
+          >
+            <Wand2 size={12} className={vizState === 'loading' ? 'animate-pulse' : ''} />
+            {vizState === 'loading' ? 'Generating…' : 'Try on'}
+          </button>
+        )}
+
         <button
           onClick={saveOutfit}
           disabled={saving}
@@ -392,6 +481,41 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
             ))}
           </ul>
           <p className="text-xs text-stone-400 italic leading-relaxed">{outfit.reason}</p>
+
+          {/* Visualization result */}
+          {vizState === 'loading' && (
+            <div
+              className="mt-3 rounded-xl h-48 flex flex-col items-center justify-center gap-2 border border-dashed border-stone-200"
+              style={{ background: '#FAFAF8' }}
+            >
+              <Wand2 size={22} className="animate-pulse" style={{ color: '#AA8EA0' }} />
+              <p className="text-xs text-stone-400">Generating try-on… ~30 sec</p>
+            </div>
+          )}
+          {vizState === 'done' && vizImageUrl && (
+            <div className="mt-3 rounded-xl overflow-hidden border border-stone-100">
+              <img src={vizImageUrl} alt="Outfit try-on" className="w-full object-cover" />
+              <p className="text-xs text-stone-400 text-center py-1.5">AI-generated try-on</p>
+            </div>
+          )}
+          {vizState === 'error' && (
+            <p className="mt-3 text-xs text-red-400 bg-red-50 px-3 py-2 rounded-xl">{vizError}</p>
+          )}
+
+          {/* Nudge for free users or missing photo */}
+          {isPro && !hasProfilePhoto && hasGarmentPhoto && (
+            <p className="mt-3 text-xs text-stone-400 bg-stone-50 px-3 py-2 rounded-xl">
+              Upload a profile photo to try on outfits →{' '}
+              <a href="/profile" className="underline" style={{ color: '#AA8EA0' }}>Profile</a>
+            </p>
+          )}
+          {!isPro && (
+            <p className="mt-3 text-xs text-stone-400 bg-stone-50 px-3 py-2 rounded-xl">
+              <span style={{ color: '#AA8EA0' }} className="font-medium">Pro feature:</span>{' '}
+              Try on outfits virtually using your photo.{' '}
+              <a href="/profile" className="underline" style={{ color: '#AA8EA0' }}>Upgrade</a>
+            </p>
+          )}
         </div>
       )}
     </div>

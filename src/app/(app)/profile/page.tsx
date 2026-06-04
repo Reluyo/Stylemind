@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { LogOut, Sparkles, MapPin, Edit2 } from 'lucide-react'
+import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon } from 'lucide-react'
 import type { Profile } from '@/lib/types'
+
+const VIZ_LIMIT = 40
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -15,6 +17,8 @@ export default function ProfilePage() {
   const [editingLocation, setEditingLocation] = useState(false)
   const [locationInput, setLocationInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -34,6 +38,25 @@ export default function ProfilePage() {
     }
     load()
   }, [router])
+
+  async function uploadProfilePhoto(file: File) {
+    if (!profile || !file.type.startsWith('image/')) return
+    setUploadingPhoto(true)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${profile.id}/profile.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('wardrobe-images')
+        .upload(path, file, { contentType: file.type, upsert: true })
+      if (uploadError) return
+      const { data: { publicUrl } } = supabase.storage.from('wardrobe-images').getPublicUrl(path)
+      await supabase.from('profiles').update({ profile_photo_url: publicUrl }).eq('id', profile.id)
+      setProfile({ ...profile, profile_photo_url: publicUrl })
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
 
   async function saveLocation() {
     if (!profile) return
@@ -107,6 +130,25 @@ export default function ProfilePage() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard label="Wardrobe items" value={itemCount} />
         <StatCard label="Plan" value={isPro ? 'Pro' : 'Free'} />
+        {isPro && (
+          <div className="col-span-2 bg-white rounded-2xl border border-stone-100 px-4 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-stone-400">Try-on visualizations this month</p>
+              <span className="text-xs font-medium" style={{ color: '#AA8EA0' }}>
+                {profile?.viz_count ?? 0} / {VIZ_LIMIT}
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-stone-100">
+              <div
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  background: '#AA8EA0',
+                  width: `${Math.min(100, ((profile?.viz_count ?? 0) / VIZ_LIMIT) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Upgrade banner (free users) */}
@@ -127,6 +169,58 @@ export default function ProfilePage() {
                 onClick={() => alert('Stripe integration coming soon!')}>
                 Upgrade for $9/mo
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Try-on photo (Pro only) */}
+      {isPro && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">Outfit Visualization</p>
+          <div className="bg-white rounded-2xl border border-stone-100 p-4">
+            <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+              Upload a full-body photo of yourself to try outfits on virtually.
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-stone-100">
+                {profile?.profile_photo_url ? (
+                  <img src={profile.profile_photo_url} alt="Your photo" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: '#F5EEF3' }}>
+                    <ImageIcon size={24} style={{ color: '#AA8EA0', opacity: 0.5 }} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  ref={photoRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadProfilePhoto(f)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  onClick={() => photoRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all hover:opacity-80 disabled:opacity-50"
+                  style={{ background: '#F5EEF3', color: '#725265' }}
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Camera size={14} />
+                  )}
+                  {profile?.profile_photo_url ? 'Replace photo' : 'Upload photo'}
+                </button>
+                <p className="text-xs text-stone-400 mt-1.5">
+                  Full-body photo works best
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -10,6 +10,9 @@ export interface Profile {
   subscription_started_at: string | null
   subscription_expires_at: string | null
   morning_reminder_time: string
+  profile_photo_url: string | null
+  viz_count: number
+  viz_reset_month: string
   created_at: string
   updated_at: string
 }
