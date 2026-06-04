@@ -16,10 +16,18 @@ const REFINE_CHIPS = [
   'Work-appropriate',
 ]
 
+const CATEGORY_COLORS: Record<string, string> = {
+  tops: '#EDE8F5',
+  bottoms: '#EBF3EC',
+  dresses: '#F5E8F0',
+  shoes: '#F0EDE8',
+  accessories: '#E8EFF5',
+  outerwear: '#F0EBF2',
+}
+
 export default function TodayPage() {
   const router = useRouter()
   const [userName, setUserName] = useState('')
-  const [location, setLocation] = useState('')
   const [weather, setWeather] = useState<WeatherSummary | null>(null)
   const [items, setItems] = useState<ClothingItem[]>([])
   const [outfits, setOutfits] = useState<AIOutfitSuggestion[]>([])
@@ -29,7 +37,6 @@ export default function TodayPage() {
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function init() {
@@ -37,18 +44,21 @@ export default function TodayPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: profile } = await supabase.from('profiles').select('full_name, location').eq('id', user.id).single()
-      const name = profile?.full_name?.split(' ')[0] ?? 'there'
-      setUserName(name)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, location')
+        .eq('id', user.id)
+        .single()
+
+      setUserName(profile?.full_name?.split(' ')[0] ?? '')
       const loc = profile?.location ?? 'New York'
-      setLocation(loc)
 
-      const { data: clothing } = await supabase.from('clothing_items').select('*').eq('user_id', user.id)
+      const [{ data: clothing }, weatherRes] = await Promise.all([
+        supabase.from('clothing_items').select('*').eq('user_id', user.id),
+        fetch(`/api/weather?location=${encodeURIComponent(loc)}`),
+      ])
       setItems(clothing ?? [])
-
-      const res = await fetch(`/api/weather?location=${encodeURIComponent(loc)}`)
-      const w = await res.json()
-      setWeather(w)
+      setWeather(await weatherRes.json())
     }
     init()
   }, [router])
@@ -105,19 +115,28 @@ export default function TodayPage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  // Pick items to suggest: season-matching first, then fallback to first 6
+  const currentSeason = weather?.season ?? ''
+  const suggestedItems = [
+    ...items.filter((i) => i.season?.includes(currentSeason) || i.season?.includes('All')),
+    ...items.filter((i) => !i.season?.includes(currentSeason) && !i.season?.includes('All')),
+  ].slice(0, 6)
+
   return (
     <div className="px-4 pt-6">
-      {/* Header */}
-      <div className="mb-5">
+      {/* Header — leaves space for hamburger button on the right */}
+      <div className="mb-5 pr-10">
         <p className="text-stone-400 text-sm">{greeting}</p>
-        <h1 className="font-serif text-2xl font-bold text-stone-900">{userName ? `${greeting}, ${userName}` : greeting}</h1>
+        <h1 className="font-serif text-2xl font-bold text-stone-900">
+          {userName ? `${greeting}, ${userName}` : greeting}
+        </h1>
       </div>
 
       {/* Weather bar */}
       {weather && (
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
-          style={{ background: '#F5EEF3' }}
+          style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(170,142,160,0.2)' }}
         >
           <CloudSun size={20} style={{ color: '#AA8EA0' }} />
           <div className="flex-1">
@@ -130,7 +149,7 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Outfits section */}
+      {/* Today's Outfits */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-lg font-semibold text-stone-900">Today&apos;s Outfits</h2>
         <button
@@ -148,97 +167,140 @@ export default function TodayPage() {
         </button>
       </div>
 
-      {!items.length && (
-        <div className="text-center py-10 text-stone-400 text-sm">
-          <p>No wardrobe items yet.</p>
-          <p className="mt-1">Head to <span className="font-medium" style={{ color: '#AA8EA0' }}>Wardrobe</span> to add some.</p>
-        </div>
-      )}
-
-      {outfits.length > 0 && (
+      {outfits.length > 0 ? (
         <div className="space-y-3 mb-6">
           {outfits.map((outfit, i) => (
             <OutfitCard key={i} outfit={outfit} wardrobeItems={items} />
           ))}
         </div>
-      )}
-
-      {!outfits.length && items.length > 0 && !generating && (
+      ) : !generating ? (
         <div
           className="rounded-2xl p-6 text-center mb-6 border border-dashed border-stone-200"
+          style={{ background: 'rgba(255,255,255,0.6)' }}
         >
           <Sparkles size={28} className="mx-auto mb-2" style={{ color: '#AA8EA0' }} />
-          <p className="text-sm text-stone-500">Tap <strong>Generate</strong> to get today&apos;s outfit picks</p>
+          <p className="text-sm text-stone-500">
+            {items.length ? 'Tap Generate to get today\'s outfit picks' : 'Add wardrobe items to get started'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-16 rounded-2xl bg-white/60 animate-pulse border border-stone-100" />
+          ))}
         </div>
       )}
 
-      {/* Stylist Chat */}
-      <div className="mb-6">
-        <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">AI Stylist</h2>
-
-        {messages.length === 0 && !streaming && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {REFINE_CHIPS.map((chip) => (
-              <button
-                key={chip}
-                onClick={() => sendMessage(chip)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-medium border border-stone-200 text-stone-600 bg-white hover:border-stone-300 transition-all"
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {(messages.length > 0 || streaming) && (
-          <div className="space-y-3 mb-3 max-h-64 overflow-y-auto no-scrollbar">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+      {/* Consider These Pieces */}
+      {suggestedItems.length > 0 && (
+        <div className="mb-6">
+          <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">
+            Consider these today
+          </h2>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            {suggestedItems.map((item) => {
+              const bg = CATEGORY_COLORS[item.category] ?? '#F5EEF3'
+              return (
                 <div
-                  className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'text-white rounded-br-sm'
-                      : 'bg-white border border-stone-100 text-stone-700 rounded-bl-sm'
-                  }`}
-                  style={msg.role === 'user' ? { background: '#AA8EA0' } : {}}
+                  key={item.id}
+                  className="flex-shrink-0 w-24 rounded-2xl overflow-hidden border border-stone-100 shadow-sm"
+                  style={{ background: 'rgba(255,255,255,0.9)' }}
                 >
-                  {msg.content}
+                  {item.thumbnail_url || item.image_url ? (
+                    <img
+                      src={item.thumbnail_url ?? item.image_url!}
+                      alt={item.name}
+                      className="w-24 h-24 object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-24 h-24 flex items-center justify-center"
+                      style={{ background: bg }}
+                    >
+                      <span className="font-serif text-lg font-bold" style={{ color: '#725265', opacity: 0.4 }}>
+                        {item.name.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="px-2 py-1.5">
+                    <p className="text-xs font-medium text-stone-700 truncate leading-tight">{item.name}</p>
+                    {item.color && <p className="text-xs text-stone-400 truncate">{item.color}</p>}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {streaming && streamingText && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm leading-relaxed bg-white border border-stone-100 text-stone-700">
-                  <span className="streaming-cursor">{streamingText}</span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
+              )
+            })}
           </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage(input)}
-            placeholder="Ask your stylist anything…"
-            className="flex-1 px-4 py-3 rounded-full border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white"
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || streaming}
-            className="p-3 rounded-full text-white transition-all hover:opacity-80 disabled:opacity-40"
-            style={{ background: '#AA8EA0' }}
-          >
-            <Send size={16} />
-          </button>
         </div>
-      </div>
+      )}
+
+      {/* AI Stylist — only shown after outfits generated */}
+      {outfits.length > 0 && (
+        <div className="mb-6">
+          <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">AI Stylist</h2>
+
+          {messages.length === 0 && !streaming && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {REFINE_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => sendMessage(chip)}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-medium border border-stone-200 text-stone-600 bg-white/80 hover:border-stone-300 transition-all"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(messages.length > 0 || streaming) && (
+            <div className="space-y-3 mb-3 max-h-64 overflow-y-auto no-scrollbar">
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'text-white rounded-br-sm'
+                        : 'bg-white/90 border border-stone-100 text-stone-700 rounded-bl-sm'
+                    }`}
+                    style={msg.role === 'user' ? { background: '#AA8EA0' } : {}}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {streaming && streamingText && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm leading-relaxed bg-white/90 border border-stone-100 text-stone-700">
+                    <span className="streaming-cursor">{streamingText}</span>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage(input)}
+              placeholder="Ask your stylist anything…"
+              className="flex-1 px-4 py-3 rounded-full border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors bg-white/90"
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim() || streaming}
+              className="p-3 rounded-full text-white transition-all hover:opacity-80 disabled:opacity-40"
+              style={{ background: '#AA8EA0' }}
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -279,9 +341,10 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
   return (
     <div
       className="rounded-2xl overflow-hidden border border-stone-100 shadow-sm cursor-pointer"
+      style={{ background: 'rgba(255,255,255,0.92)' }}
       onClick={() => setExpanded((v) => !v)}
     >
-      <div className="flex items-center gap-3 px-4 py-3.5 bg-white">
+      <div className="flex items-center gap-3 px-4 py-3.5">
         <div className="flex-1 min-w-0">
           <h3 className="font-serif font-semibold text-stone-900 text-base leading-snug truncate">{outfit.name}</h3>
           <div className="flex items-center gap-2 mt-1">
@@ -319,7 +382,7 @@ function OutfitCard({ outfit, wardrobeItems }: { outfit: AIOutfitSuggestion; war
       </div>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 bg-white border-t border-stone-50">
+        <div className="px-4 pb-4 pt-1 border-t border-stone-50">
           <ul className="space-y-1 mb-3">
             {outfit.items.map((item) => (
               <li key={item} className="flex items-center gap-2 text-sm text-stone-600">

@@ -19,7 +19,7 @@ export default function SignupPage() {
     setError('')
     const supabase = createClient()
 
-    const { data, error: signupError } = await supabase.auth.signUp({
+    const { error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
@@ -31,10 +31,6 @@ export default function SignupPage() {
       return
     }
 
-    if (data.user) {
-      await supabase.rpc('seed_demo_wardrobe', { p_user_id: data.user.id })
-    }
-
     router.push('/today')
     router.refresh()
   }
@@ -42,7 +38,7 @@ export default function SignupPage() {
   return (
     <>
       <h1 className="font-serif text-2xl font-bold text-stone-900 mb-1">Create your account</h1>
-      <p className="text-sm text-stone-500 mb-6">Start with a demo wardrobe — no uploads needed</p>
+      <p className="text-sm text-stone-500 mb-6">Start building your digital wardrobe</p>
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-xl text-sm bg-red-50 text-red-600 border border-red-100">
