@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock, CheckCircle2 } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
+import BetweenOutfitsAd from '@/components/ads/BetweenOutfitsAd'
+import StylistStripAd from '@/components/ads/StylistStripAd'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
@@ -32,13 +34,13 @@ export default function TodayPage() {
   const [items, setItems] = useState<ClothingItem[]>([])
   const [outfits, setOutfits] = useState<AIOutfitSuggestion[]>([])
   const [generating, setGenerating] = useState(false)
+  const [isPro, setIsPro] = useState(true) // default true to avoid flash of ads on load
+  const [hasProfilePhoto, setHasProfilePhoto] = useState(false)
+  const [plannedOutfitAlert, setPlannedOutfitAlert] = useState<{ outfitName: string; message: string; type: 'rain' | 'cold' | 'hot' } | null>(null)
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
-  const [isPro, setIsPro] = useState(false)
-  const [hasProfilePhoto, setHasProfilePhoto] = useState(false)
-  const [plannedOutfitAlert, setPlannedOutfitAlert] = useState<{ outfitName: string; message: string; type: 'rain' | 'cold' | 'hot' } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -57,7 +59,6 @@ export default function TodayPage() {
       setIsPro(profile?.plan === 'pro')
       setHasProfilePhoto(!!profile?.profile_photo_url)
       const loc = profile?.location ?? 'New York'
-      // Store style prefs so generateOutfits can use them
       if (profile?.style_preferences?.length) {
         sessionStorage.setItem('sm_style_prefs', JSON.stringify(profile.style_preferences))
       }
@@ -84,7 +85,6 @@ export default function TodayPage() {
         if (planned?.outfit_id) {
           const cond = weatherData.condition.toLowerCase()
           const temp = weatherData.temp_f
-          // Supabase may return joined row as object or single-element array
           const outfitsRow = planned.outfits as unknown as { name: string } | { name: string }[] | null
           const outfitName = (Array.isArray(outfitsRow) ? outfitsRow[0]?.name : outfitsRow?.name) ?? 'your planned outfit'
           let alert: typeof plannedOutfitAlert = null
@@ -158,7 +158,6 @@ export default function TodayPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
 
-  // Pick items to suggest: season-matching first, then fallback to first 6
   const currentSeason = weather?.season ?? ''
   const suggestedItems = [
     ...items.filter((i) => i.season?.includes(currentSeason) || i.season?.includes('All')),
@@ -167,7 +166,6 @@ export default function TodayPage() {
 
   return (
     <div className="px-4 pt-6">
-      {/* Header — leaves space for hamburger button on the right */}
       <div className="mb-5 pr-10">
         <p className="text-stone-400 text-sm">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -177,7 +175,6 @@ export default function TodayPage() {
         </h1>
       </div>
 
-      {/* Weather bar */}
       {weather && (
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
@@ -194,7 +191,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Planned outfit weather alert */}
       {plannedOutfitAlert && (
         <div
           className="flex items-start gap-3 px-4 py-3 rounded-2xl mb-5 border"
@@ -214,7 +210,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Today's Outfits */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-lg font-semibold text-stone-900">Today&apos;s Outfits</h2>
         <button
@@ -235,7 +230,10 @@ export default function TodayPage() {
       {outfits.length > 0 ? (
         <div className="space-y-3 mb-6">
           {outfits.map((outfit, i) => (
-            <OutfitCard key={i} outfit={outfit} wardrobeItems={items} isPro={isPro} hasProfilePhoto={hasProfilePhoto} />
+            <div key={i}>
+              <OutfitCard outfit={outfit} wardrobeItems={items} isPro={isPro} hasProfilePhoto={hasProfilePhoto} />
+              {i === 0 && !isPro && <div className="mt-3"><BetweenOutfitsAd /></div>}
+            </div>
           ))}
         </div>
       ) : !generating ? (
@@ -256,7 +254,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Consider These Pieces */}
       {suggestedItems.length > 0 && (
         <div className="mb-6">
           <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">
@@ -278,10 +275,7 @@ export default function TodayPage() {
                       className="w-24 h-24 object-cover"
                     />
                   ) : (
-                    <div
-                      className="w-24 h-24 flex items-center justify-center"
-                      style={{ background: bg }}
-                    >
+                    <div className="w-24 h-24 flex items-center justify-center" style={{ background: bg }}>
                       <span className="font-serif text-lg font-bold" style={{ color: '#725265', opacity: 0.4 }}>
                         {item.name.slice(0, 2).toUpperCase()}
                       </span>
@@ -298,7 +292,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* AI Stylist — only shown after outfits generated */}
       {outfits.length > 0 && (
         <div className="mb-6">
           <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">AI Stylist</h2>
@@ -320,10 +313,7 @@ export default function TodayPage() {
           {(messages.length > 0 || streaming) && (
             <div className="space-y-3 mb-3 max-h-64 overflow-y-auto no-scrollbar">
               {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                       msg.role === 'user'
@@ -346,6 +336,8 @@ export default function TodayPage() {
               <div ref={chatEndRef} />
             </div>
           )}
+
+          {!isPro && <StylistStripAd />}
 
           <div className="flex gap-2">
             <input
@@ -405,7 +397,6 @@ function OutfitCard({
   const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EEF3'
   const textDark = bgColor === '#251828'
 
-  // Check if any outfit item has a wardrobe photo (try-on requires garment image)
   const hasGarmentPhoto = outfit.items.some((name) =>
     wardrobeItems.some(
       (wi) =>
@@ -484,7 +475,6 @@ function OutfitCard({
     }).eq('id', savedId)
   }
 
-  // Clean up polling on unmount
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
   const canTryOn = isPro && hasProfilePhoto && hasGarmentPhoto
@@ -505,16 +495,12 @@ function OutfitCard({
             >
               {outfit.occasion}
             </span>
-            <span
-              className="text-xs px-2.5 py-0.5 rounded-full"
-              style={{ background: '#F5EEF3', color: '#725265' }}
-            >
+            <span className="text-xs px-2.5 py-0.5 rounded-full" style={{ background: '#F5EEF3', color: '#725265' }}>
               {outfit.style_tag}
             </span>
           </div>
         </div>
 
-        {/* Try on button — Pro or locked */}
         {isPro ? (
           canTryOn && (
             <button
@@ -522,7 +508,6 @@ function OutfitCard({
               disabled={vizState === 'loading'}
               className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
               style={{ background: '#EDE8F5', color: '#725265' }}
-              title="Try on this outfit"
             >
               <Wand2 size={12} className={vizState === 'loading' ? 'animate-pulse' : ''} />
               {vizState === 'loading' ? 'Generating…' : 'Try on'}
@@ -533,7 +518,6 @@ function OutfitCard({
             disabled
             className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full opacity-40 cursor-not-allowed"
             style={{ background: '#EDE8F5', color: '#725265' }}
-            title="Upgrade to Pro to try on outfits"
           >
             <Lock size={12} />
             Try on
@@ -545,10 +529,7 @@ function OutfitCard({
             onClick={markWorn}
             disabled={wornToday}
             className="flex-shrink-0 flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all"
-            style={wornToday
-              ? { background: '#EBF3EC', color: '#5a7a5a' }
-              : { background: '#F5EEF3', color: '#725265' }}
-            title="Mark as worn today"
+            style={wornToday ? { background: '#EBF3EC', color: '#5a7a5a' } : { background: '#F5EEF3', color: '#725265' }}
           >
             <CheckCircle2 size={12} />
             {wornToday ? 'Worn' : 'Wore this'}
@@ -558,7 +539,6 @@ function OutfitCard({
           onClick={saveOutfit}
           disabled={saving}
           className="flex-shrink-0 p-1.5 rounded-full transition-colors hover:bg-stone-50"
-          title={saved ? 'Saved' : 'Save outfit'}
         >
           {saved ? (
             <BookmarkCheck size={17} style={{ color: '#AA8EA0' }} />
@@ -585,7 +565,6 @@ function OutfitCard({
           </ul>
           <p className="text-xs text-stone-400 italic leading-relaxed">{outfit.reason}</p>
 
-          {/* Visualization result */}
           {vizState === 'loading' && (
             <div
               className="mt-3 rounded-xl h-48 flex flex-col items-center justify-center gap-2 border border-dashed border-stone-200"
@@ -605,7 +584,6 @@ function OutfitCard({
             <p className="mt-3 text-xs text-red-400 bg-red-50 px-3 py-2 rounded-xl">{vizError}</p>
           )}
 
-          {/* Nudge for pro users missing a profile photo */}
           {isPro && !hasProfilePhoto && hasGarmentPhoto && (
             <p className="mt-3 text-xs text-stone-400 bg-stone-50 px-3 py-2 rounded-xl">
               Upload a profile photo to try on outfits →{' '}

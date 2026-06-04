@@ -7,6 +7,7 @@ import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2 } from 
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
 import AddItemModal from '@/components/AddItemModal'
 import ShareOutfitModal from '@/components/ShareOutfitModal'
+import WardrobeFooterAd from '@/components/ads/WardrobeFooterAd'
 
 const CATEGORIES: { label: string; value: ClothingCategory | 'all' }[] = [
   { label: 'All', value: 'all' },
@@ -36,6 +37,7 @@ export default function WardrobePage() {
   const [items, setItems] = useState<ClothingItem[]>([])
   const [savedOutfits, setSavedOutfits] = useState<OutfitWithItems[]>([])
   const [loading, setLoading] = useState(true)
+  const [isPro, setIsPro] = useState(true) // default true to avoid flash of ads on load
   const [search, setSearch] = useState('')
   const [outfitSearch, setOutfitSearch] = useState('')
   const [category, setCategory] = useState<ClothingCategory | 'all'>('all')
@@ -50,7 +52,7 @@ export default function WardrobePage() {
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
 
-    const [{ data: clothing }, { data: outfits }] = await Promise.all([
+    const [{ data: clothing }, { data: outfits }, { data: profile }] = await Promise.all([
       supabase
         .from('clothing_items')
         .select('*')
@@ -61,10 +63,16 @@ export default function WardrobePage() {
         .select('*, outfit_items(clothing_items(name, category))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('profiles')
+        .select('plan')
+        .eq('id', user.id)
+        .single(),
     ])
 
     setItems(clothing ?? [])
     setSavedOutfits(outfits ?? [])
+    setIsPro(profile?.plan === 'pro')
     setLoading(false)
   }
 
@@ -110,7 +118,6 @@ export default function WardrobePage() {
     setSavedOutfits((prev) => prev.map((x) => x.id === id ? { ...x, is_favorite: val } : x))
   }
 
-  // Stats helpers
   const categoryBreakdown = CATEGORIES.slice(1).map(({ label, value }) => ({
     label,
     value: value as ClothingCategory,
@@ -135,7 +142,6 @@ export default function WardrobePage() {
   return (
     <div className="flex flex-col px-4 pt-6" style={{ height: 'calc(100vh - 5rem)' }}>
 
-      {/* ── Fixed header ── */}
       <div className="flex-shrink-0">
         <div className="flex items-center justify-between mb-5">
           <div>
@@ -154,7 +160,6 @@ export default function WardrobePage() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-xl mb-4" style={{ background: '#F5EEF3' }}>
           {(['items', 'outfits', 'stats'] as Tab[]).map((t) => (
             <button
@@ -232,7 +237,6 @@ export default function WardrobePage() {
         )}
       </div>
 
-      {/* ── Scrollable content ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
 
         {tab === 'items' && (
@@ -300,7 +304,6 @@ export default function WardrobePage() {
               </div>
             ) : (
               <>
-                {/* Category breakdown */}
                 <div className="bg-white rounded-2xl border border-stone-100 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-4">By category</p>
                   <div className="space-y-3">
@@ -325,7 +328,6 @@ export default function WardrobePage() {
                   </div>
                 </div>
 
-                {/* Seasonal coverage */}
                 <div className="bg-white rounded-2xl border border-stone-100 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-4">Seasonal coverage</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -343,10 +345,9 @@ export default function WardrobePage() {
                   </div>
                 </div>
 
-                {/* Wear stats */}
                 <div className="bg-white rounded-2xl border border-stone-100 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-4">Wear history</p>
-                  {topWorn.length > 0 ? (
+                  {topWorn.length > 0 && (
                     <>
                       <p className="text-xs text-stone-500 mb-3">Most worn</p>
                       <div className="space-y-2 mb-4">
@@ -363,14 +364,13 @@ export default function WardrobePage() {
                         ))}
                       </div>
                     </>
-                  ) : null}
+                  )}
                   <div className="flex items-center justify-between pt-3 border-t border-stone-50">
                     <span className="text-sm text-stone-500">Never worn</span>
                     <span className="text-sm font-semibold text-stone-700">{neverWorn} items</span>
                   </div>
                 </div>
 
-                {/* Quick totals */}
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard label="Total items" value={items.length} />
                   <StatCard label="Outfits" value={savedOutfits.length} />
@@ -381,7 +381,7 @@ export default function WardrobePage() {
           </div>
         )}
 
-      </div>{/* end scrollable */}
+      </div>
 
       {showAddModal && userId && (
         <AddItemModal
@@ -394,6 +394,8 @@ export default function WardrobePage() {
           }}
         />
       )}
+
+      {!loading && !isPro && <WardrobeFooterAd />}
     </div>
   )
 }
@@ -439,7 +441,6 @@ function ClothingCard({
           <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
         </div>
       )}
-      {/* Fav button */}
       <button
         onClick={toggleFav}
         className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
@@ -519,12 +520,10 @@ function SavedOutfitCard({
             </p>
           </div>
 
-          {/* Fav */}
           <button onClick={toggleFav} className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0">
             <Heart size={14} fill={isFav ? '#AA8EA0' : 'none'} color={isFav ? '#AA8EA0' : '#d1cdd0'} />
           </button>
 
-          {/* Share */}
           <button
             onClick={(e) => { e.stopPropagation(); setSharing(true) }}
             className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0"
