@@ -24,6 +24,8 @@ export default function ProfilePage() {
   const [savingNotif, setSavingNotif] = useState(false)
   const [stylePrefs, setStylePrefs] = useState<string[]>([])
   const [savingStyle, setSavingStyle] = useState(false)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
 
   const STYLE_OPTIONS = [
@@ -137,6 +139,28 @@ export default function ProfilePage() {
     setSavingNotif(false)
   }
 
+  async function startCheckout() {
+    setCheckingOut(true)
+    try {
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
+  async function openPortal() {
+    setOpeningPortal(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } finally {
+      setOpeningPortal(false)
+    }
+  }
+
   async function signOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -201,6 +225,20 @@ export default function ProfilePage() {
         <StatCard label="Plan" value={isPro ? 'Pro' : 'Free'} />
       </div>
 
+      {/* Manage subscription (Pro users) */}
+      {isPro && (
+        <div className="mb-6">
+          <button
+            onClick={openPortal}
+            disabled={openingPortal}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-stone-200 text-sm text-stone-500 hover:bg-stone-50 transition-all disabled:opacity-60"
+          >
+            {openingPortal && <Loader2 size={13} className="animate-spin" />}
+            Manage subscription
+          </button>
+        </div>
+      )}
+
       {/* Upgrade banner (free users) */}
       {!isPro && (
         <div
@@ -214,9 +252,13 @@ export default function ProfilePage() {
               <p className="text-white/80 text-xs mt-0.5 leading-relaxed">
                 Unlimited items, 5 daily outfits, AI Stylist chat, week planner, and more.
               </p>
-              <button className="mt-3 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
+              <button
+                className="mt-3 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all disabled:opacity-60 flex items-center gap-2"
                 style={{ color: '#725265' }}
-                onClick={() => alert('Stripe integration coming soon!')}>
+                onClick={startCheckout}
+                disabled={checkingOut}
+              >
+                {checkingOut && <Loader2 size={13} className="animate-spin" />}
                 Upgrade for $9/mo
               </button>
             </div>

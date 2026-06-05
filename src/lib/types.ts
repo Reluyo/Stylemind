@@ -14,6 +14,7 @@ export interface Profile {
   viz_count: number
   viz_reset_month: string
   notification_frequency: 'daily' | 'weekly' | 'none'
+  stripe_customer_id: string | null
   created_at: string
   updated_at: string
 }
