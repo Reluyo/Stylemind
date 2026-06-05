@@ -168,13 +168,13 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
       style={{ background: 'rgba(0,0,0,0.4)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-[430px] bg-white rounded-t-3xl overflow-y-auto max-h-[92vh]">
+      <div className="w-full max-w-[430px] bg-white rounded-t-3xl overflow-y-auto max-h-[90vh]">
         {/* Handle bar */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-stone-200" />
         </div>
 
-        <div className="px-5 pb-8 pt-2">
+        <div className="px-5 pb-16 pt-2">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-serif text-xl font-bold text-stone-900">Add clothing item</h2>
