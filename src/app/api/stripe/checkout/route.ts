@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
-import { stripe, STRIPE_PRO_PRICE_ID } from '@/lib/stripe'
+import { getStripe, STRIPE_PRO_PRICE_ID } from '@/lib/stripe'
 import { cookies } from 'next/headers'
 
 export async function POST() {
@@ -20,7 +20,7 @@ export async function POST() {
   let customerId = profile?.stripe_customer_id as string | undefined
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email,
       name: profile?.full_name ?? undefined,
       metadata: { supabase_user_id: user.id },
@@ -34,10 +34,10 @@ export async function POST() {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: [{ price: STRIPE_PRO_PRICE_ID, quantity: 1 }],
+    line_items: [{ price: STRIPE_PRO_PRICE_ID(), quantity: 1 }],
     success_url: `${baseUrl}/upgrade-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/profile`,
     metadata: { supabase_user_id: user.id },

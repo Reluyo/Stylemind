@@ -1,7 +1,14 @@
 import Stripe from 'stripe'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-05-27.dahlia',
-})
+let _stripe: Stripe | null = null
 
-export const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID!
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-05-27.dahlia',
+    })
+  }
+  return _stripe
+}
+
+export const STRIPE_PRO_PRICE_ID = () => process.env.STRIPE_PRO_PRICE_ID!
