@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <rect width="512" height="512" rx="112" fill="#F5EEF3"/>
-  <g transform="translate(156, 40) scale(1.0)">
+  <g transform="translate(156, 115)">
     <!-- Hanger hook -->
     <path d="M100 18 C100 18 100 8 110 8 C120 8 122 18 115 22" stroke="#725265" stroke-width="14" stroke-linecap="round" fill="none"/>
     <!-- Hanger bar -->
