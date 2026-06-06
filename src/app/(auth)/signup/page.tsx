@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -38,9 +37,6 @@ export default function SignupPage() {
 
   return (
     <>
-      <div className="flex justify-center mb-6">
-        <Image src="/logo.svg" alt="StyleMind" width={64} height={84} priority />
-      </div>
       <h1 className="font-serif text-2xl font-bold text-stone-900 mb-1">Create your account</h1>
       <p className="text-sm text-stone-500 mb-6">Start building your digital wardrobe</p>
 

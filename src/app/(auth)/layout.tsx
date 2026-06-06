@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -6,8 +7,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Decorative watermarks */}
       <div className="logo-watermark absolute -top-8 -left-8 w-48 h-64 opacity-[0.06] rotate-[-15deg]" aria-hidden="true" />
       <div className="logo-watermark absolute -bottom-8 -right-8 w-36 h-48 opacity-[0.05] rotate-[20deg]" aria-hidden="true" />
-      <Link href="/" className="font-serif text-2xl font-bold mb-8" style={{ color: '#AA8EA0' }}>
-        StyleMind
+      <Link href="/" className="mb-8 block">
+        <Image src="/logo-wordmark.png" alt="StyleMind" width={200} height={80} className="object-contain" priority />
       </Link>
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-stone-100 p-8">
         {children}
