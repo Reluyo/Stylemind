@@ -54,6 +54,12 @@ export async function POST(req: NextRequest) {
   if (!profile.profile_photo_url) {
     return NextResponse.json({ error: 'Upload a profile photo first', code: 'NO_PHOTO' }, { status: 400 })
   }
+  // Only allow photos that actually live in our Supabase storage bucket —
+  // prevents passing an attacker-controlled URL to Replicate.
+  const allowedPhotoPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`
+  if (!profile.profile_photo_url.startsWith(allowedPhotoPrefix)) {
+    return NextResponse.json({ error: 'Invalid profile photo', code: 'BAD_PHOTO' }, { status: 400 })
+  }
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const resetNeeded = profile.viz_reset_month !== currentMonth
@@ -77,6 +83,9 @@ export async function POST(req: NextRequest) {
   }
 
   const garmentUrl = hero.thumbnail_url ?? hero.image_url!
+  if (!garmentUrl.startsWith(allowedPhotoPrefix)) {
+    return NextResponse.json({ error: 'Invalid garment image' }, { status: 400 })
+  }
   const tryOnCategory = CATEGORY_MAP[hero.category]
 
   const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN })

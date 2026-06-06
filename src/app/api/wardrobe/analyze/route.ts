@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getAuthedContext } from '@/lib/api-auth'
+import { rateLimit, sweepExpired } from '@/lib/rate-limit'
 
 const VALID_CATEGORIES = ['tops', 'bottoms', 'dresses', 'shoes', 'accessories', 'outerwear']
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+// Base64 string length cap (~7MB encoded ≈ ~5MB decoded image).
+const MAX_BASE64_LEN = 7_000_000
 
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -9,8 +14,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const ctx = await getAuthedContext()
+    if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    sweepExpired()
+    const rl = rateLimit(`analyze:${ctx.userId}`, 30, 60_000)
+    if (!rl.success) {
+      return NextResponse.json({ error: 'Too many requests, please slow down' }, { status: 429 })
+    }
+
     const { imageBase64, mediaType } = await req.json()
-    if (!imageBase64) return NextResponse.json({ error: 'No image provided' }, { status: 400 })
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return NextResponse.json({ error: 'No image provided' }, { status: 400 })
+    }
+    if (imageBase64.length > MAX_BASE64_LEN) {
+      return NextResponse.json({ error: 'Image too large (max ~5MB)' }, { status: 413 })
+    }
+    const type = typeof mediaType === 'string' ? mediaType : 'image/jpeg'
+    if (!ALLOWED_TYPES.includes(type)) {
+      return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 })
+    }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -25,7 +48,7 @@ export async function POST(req: NextRequest) {
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: mediaType ?? 'image/jpeg',
+                media_type: type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
                 data: imageBase64,
               },
             },
@@ -44,14 +67,20 @@ export async function POST(req: NextRequest) {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
-    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    let parsed
+    try {
+      parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    } catch {
+      console.error('Analyze: AI returned non-JSON')
+      return NextResponse.json({ error: 'Could not read that photo, please retry' }, { status: 502 })
+    }
 
     // Sanitize category
     if (!VALID_CATEGORIES.includes(parsed.category)) parsed.category = 'tops'
 
     return NextResponse.json(parsed)
   } catch (err) {
-    console.error('Analyze error:', err)
+    console.error('Analyze error:', err instanceof Error ? err.message : 'unknown')
     return NextResponse.json({ error: 'Analysis failed' }, { status: 500 })
   }
 }

@@ -138,10 +138,22 @@ export default function TodayPage() {
     const res = await fetch('/api/stylist/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: newMessages, items, weather }),
+      body: JSON.stringify({ messages: newMessages, weather }),
     })
 
-    const reader = res.body!.getReader()
+    if (!res.ok || !res.body) {
+      let msg = 'Sorry, something went wrong. Please try again.'
+      try {
+        const data = await res.json()
+        if (data?.code === 'NOT_PRO') msg = 'Upgrade to Pro to chat with the AI stylist.'
+        else if (res.status === 429) msg = 'Slow down a moment, then try again.'
+      } catch {}
+      setMessages((prev) => [...prev, { role: 'assistant', content: msg }])
+      setStreaming(false)
+      return
+    }
+
+    const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let full = ''
     while (true) {
@@ -452,17 +464,29 @@ function OutfitCard({
     }
 
     const { predictionId } = data
+    let attempts = 0
+    const MAX_ATTEMPTS = 60 // ~3 minutes at 3s intervals
     pollRef.current = setInterval(async () => {
-      const pollRes = await fetch(`/api/outfits/visualize?id=${predictionId}`)
-      const pollData = await pollRes.json()
-      if (pollData.status === 'succeeded') {
-        clearInterval(pollRef.current!)
-        setVizImageUrl(pollData.imageUrl)
-        setVizState('done')
-      } else if (pollData.status === 'failed') {
+      if (++attempts > MAX_ATTEMPTS) {
         clearInterval(pollRef.current!)
         setVizState('error')
-        setVizError(pollData.error ?? 'Generation failed')
+        setVizError('Visualization timed out, please try again')
+        return
+      }
+      try {
+        const pollRes = await fetch(`/api/outfits/visualize?id=${predictionId}`)
+        const pollData = await pollRes.json()
+        if (pollData.status === 'succeeded') {
+          clearInterval(pollRef.current!)
+          setVizImageUrl(pollData.imageUrl)
+          setVizState('done')
+        } else if (pollData.status === 'failed') {
+          clearInterval(pollRef.current!)
+          setVizState('error')
+          setVizError(pollData.error ?? 'Generation failed')
+        }
+      } catch {
+        // transient network error — keep polling until MAX_ATTEMPTS
       }
     }, 3000)
   }

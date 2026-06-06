@@ -59,8 +59,14 @@ Rules:
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
-  return parsed.outfits as AIOutfitSuggestion[]
+  let parsed: { outfits?: AIOutfitSuggestion[] }
+  try {
+    parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+  } catch {
+    throw new Error('AI_MALFORMED')
+  }
+  if (!Array.isArray(parsed.outfits)) throw new Error('AI_MALFORMED')
+  return parsed.outfits
 }
 
 // Stream a stylist chat response

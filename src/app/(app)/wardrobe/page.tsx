@@ -38,6 +38,7 @@ export default function WardrobePage() {
   const [items, setItems] = useState<ClothingItem[]>([])
   const [savedOutfits, setSavedOutfits] = useState<OutfitWithItems[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isPro, setIsPro] = useState(true) // default true to avoid flash of ads on load
   const [search, setSearch] = useState('')
   const [outfitSearch, setOutfitSearch] = useState('')
@@ -52,29 +53,37 @@ export default function WardrobePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
+    setLoadError(null)
 
-    const [{ data: clothing }, { data: outfits }, { data: profile }] = await Promise.all([
-      supabase
-        .from('clothing_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('outfits')
-        .select('*, outfit_items(clothing_items(name, category))')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('profiles')
-        .select('plan')
-        .eq('id', user.id)
-        .single(),
-    ])
+    try {
+      const [{ data: clothing }, { data: outfits }, { data: profile }] = await Promise.all([
+        supabase
+          .from('clothing_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(300),
+        supabase
+          .from('outfits')
+          .select('*, outfit_items(clothing_items(name, category))')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single(),
+      ])
 
-    setItems(clothing ?? [])
-    setSavedOutfits(outfits ?? [])
-    setIsPro(profile?.plan === 'pro')
-    setLoading(false)
+      setItems(clothing ?? [])
+      setSavedOutfits(outfits ?? [])
+      setIsPro(profile?.plan === 'pro')
+    } catch {
+      setLoadError('Failed to load your wardrobe. Please refresh.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -142,6 +151,13 @@ export default function WardrobePage() {
 
   return (
     <div className="flex flex-col px-4 pt-6" style={{ height: 'calc(100vh - 5rem)' }}>
+
+      {loadError && (
+        <div className="mb-3 px-4 py-3 rounded-xl text-sm bg-red-50 text-red-600 border border-red-100 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button onClick={() => { setLoading(true); loadItems() }} className="font-semibold underline">Retry</button>
+        </div>
+      )}
 
       <div className="flex-shrink-0">
         <div className="flex items-center justify-between mb-5">
