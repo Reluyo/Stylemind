@@ -13,8 +13,10 @@ export default function UpgradeSuccessPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center"
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden"
       style={{ background: '#F5EEF3' }}>
+      <div className="logo-watermark absolute -top-10 -left-10 w-52 h-64 opacity-[0.07] rotate-[-20deg]" aria-hidden="true" />
+      <div className="logo-watermark absolute -bottom-10 -right-10 w-44 h-56 opacity-[0.06] rotate-[15deg]" aria-hidden="true" />
       <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
         style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}>
         <Sparkles size={36} className="text-white" />

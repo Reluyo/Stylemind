@@ -242,10 +242,11 @@ export default function ProfilePage() {
       {/* Upgrade banner (free users) */}
       {!isPro && (
         <div
-          className="rounded-2xl p-5 mb-6"
+          className="rounded-2xl p-5 mb-6 relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
         >
-          <div className="flex items-start gap-3">
+          <div className="logo-watermark absolute -right-4 -bottom-4 w-28 h-36 opacity-[0.12]" aria-hidden="true" />
+          <div className="flex items-start gap-3 relative">
             <Sparkles size={20} className="text-white flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-semibold text-white text-sm">Upgrade to Pro</p>
