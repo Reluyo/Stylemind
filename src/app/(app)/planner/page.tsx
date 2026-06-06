@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Calendar, RotateCcw } from 'lucide-react'
+import { DressFormIcon } from '@/components/BottomNav'
 import type { ClothingItem } from '@/lib/types'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -109,7 +110,10 @@ export default function PlannerPage() {
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-stone-900">Week Planner</h1>
+          <div className="flex items-center gap-2 mb-0.5">
+              <DressFormIcon size={26} color="#AA8EA0" strokeWidth={7} />
+              <h1 className="font-serif text-2xl font-bold text-stone-900">Week Planner</h1>
+            </div>
           <p className="text-xs text-stone-400 mt-0.5">
             {weekDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
             {weekDates[4].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
