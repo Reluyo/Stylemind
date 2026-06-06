@@ -8,6 +8,10 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-serif'
 export const metadata: Metadata = {
   title: 'StyleMind — AI Outfit Planner',
   description: 'Your AI-powered personal stylist. Get daily outfit recommendations based on your wardrobe, weather, and style.',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
