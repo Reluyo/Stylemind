@@ -195,11 +195,17 @@ export default function ProfilePage() {
 
       {/* Avatar + name */}
       <div className="flex items-center gap-4 mb-6">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold font-serif flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
-        >
-          {initials}
+        <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-white shadow-md">
+          {profile?.profile_photo_url ? (
+            <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center text-white text-xl font-bold font-serif"
+              style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+            >
+              {initials}
+            </div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-stone-900 text-lg leading-snug truncate">

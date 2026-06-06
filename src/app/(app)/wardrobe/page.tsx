@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2 } from 'lucide-react'
+import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil } from 'lucide-react'
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
 import AddItemModal from '@/components/AddItemModal'
+import EditItemModal from '@/components/EditItemModal'
 import ShareOutfitModal from '@/components/ShareOutfitModal'
 import WardrobeFooterAd from '@/components/ads/WardrobeFooterAd'
 
@@ -112,6 +113,10 @@ export default function WardrobePage() {
 
   function updateItemFav(id: string, val: boolean) {
     setItems((prev) => prev.map((x) => x.id === id ? { ...x, is_favorite: val } : x))
+  }
+
+  function updateItem(updated: ClothingItem) {
+    setItems((prev) => prev.map((x) => x.id === updated.id ? updated : x))
   }
 
   function updateOutfitFav(id: string, val: boolean) {
@@ -262,7 +267,7 @@ export default function WardrobePage() {
             {!loading && filtered.length > 0 && (
               <div className="grid grid-cols-2 gap-3 pt-1 pb-4">
                 {filtered.map((item) => (
-                  <ClothingCard key={item.id} item={item} onDelete={deleteItem} onFavToggle={updateItemFav} />
+                  <ClothingCard key={item.id} item={item} onDelete={deleteItem} onFavToggle={updateItemFav} onEdit={updateItem} />
                 ))}
               </div>
             )}
@@ -413,15 +418,18 @@ function ClothingCard({
   item,
   onDelete,
   onFavToggle,
+  onEdit,
 }: {
   item: ClothingItem
   onDelete: (id: string) => void
   onFavToggle: (id: string, val: boolean) => void
+  onEdit: (updated: ClothingItem) => void
 }) {
   const bg = CATEGORY_COLORS[item.category] ?? '#F5EEF3'
   const initials = item.name.slice(0, 2).toUpperCase()
   const [confirming, setConfirming] = useState(false)
   const [isFav, setIsFav] = useState(item.is_favorite)
+  const [editing, setEditing] = useState(false)
 
   async function toggleFav(e: React.MouseEvent) {
     e.stopPropagation()
@@ -433,44 +441,63 @@ function ClothingCard({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-stone-100 shadow-sm bg-white relative group">
-      {item.thumbnail_url || item.image_url ? (
-        <img src={item.thumbnail_url ?? item.image_url!} alt={item.name} className="w-full h-32 object-cover" />
-      ) : (
-        <div className="w-full h-32 flex items-center justify-center" style={{ background: bg }}>
-          <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
-        </div>
-      )}
-      <button
-        onClick={toggleFav}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
-        style={{ background: isFav ? '#AA8EA0' : 'rgba(255,255,255,0.85)' }}
-      >
-        <Heart size={13} fill={isFav ? 'white' : 'none'} color={isFav ? 'white' : '#AA8EA0'} />
-      </button>
-      <div className="px-3 py-2.5">
-        <p className="text-sm font-medium text-stone-800 leading-snug truncate">{item.name}</p>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1.5">
-            {item.color && <span className="text-xs text-stone-400">{item.color}</span>}
-            {item.color && <span className="text-stone-200 text-xs">·</span>}
-            <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: bg, color: '#4a3545' }}>
-              {item.category}
-            </span>
+    <>
+      <div className="rounded-2xl overflow-hidden border border-stone-100 shadow-sm bg-white relative group">
+        {item.thumbnail_url || item.image_url ? (
+          <img src={item.thumbnail_url ?? item.image_url!} alt={item.name} className="w-full h-32 object-cover" />
+        ) : (
+          <div className="w-full h-32 flex items-center justify-center" style={{ background: bg }}>
+            <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
           </div>
-          {confirming ? (
-            <button className="text-xs text-red-500 font-medium" onClick={() => onDelete(item.id)}>Delete</button>
-          ) : (
-            <button
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
-              onClick={() => setConfirming(true)}
-            >
-              <Trash2 size={12} className="text-stone-300 hover:text-red-400 transition-colors" />
-            </button>
-          )}
+        )}
+        <button
+          onClick={toggleFav}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+          style={{ background: isFav ? '#AA8EA0' : 'rgba(255,255,255,0.85)' }}
+        >
+          <Heart size={13} fill={isFav ? 'white' : 'none'} color={isFav ? 'white' : '#AA8EA0'} />
+        </button>
+        <div className="px-3 py-2.5">
+          <p className="text-sm font-medium text-stone-800 leading-snug truncate">{item.name}</p>
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-1.5">
+              {item.color && <span className="text-xs text-stone-400">{item.color}</span>}
+              {item.color && <span className="text-stone-200 text-xs">·</span>}
+              <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: bg, color: '#4a3545' }}>
+                {item.category}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              {confirming ? (
+                <button className="text-xs text-red-500 font-medium" onClick={() => onDelete(item.id)}>Delete</button>
+              ) : (
+                <>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
+                    onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+                  >
+                    <Pencil size={12} className="text-stone-300 hover:text-stone-500 transition-colors" />
+                  </button>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
+                    onClick={() => setConfirming(true)}
+                  >
+                    <Trash2 size={12} className="text-stone-300 hover:text-red-400 transition-colors" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+      {editing && (
+        <EditItemModal
+          item={item}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => { onEdit(updated); setEditing(false) }}
+        />
+      )}
+    </>
   )
 }
 
