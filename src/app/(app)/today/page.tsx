@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock, CheckCircle2 } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 import BetweenOutfitsAd from '@/components/ads/BetweenOutfitsAd'
@@ -167,9 +168,12 @@ export default function TodayPage() {
   return (
     <div className="px-4 pt-6">
       <div className="mb-5 pr-10">
-        <p className="text-stone-400 text-sm">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <Image src="/icon.svg" alt="StyleMind" width={28} height={28} className="rounded-lg" />
+          <p className="text-stone-400 text-sm">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
         <h1 className="font-serif text-2xl font-bold text-stone-900">
           {userName ? `What will we wear today, ${userName}?` : 'What will we wear today?'}
         </h1>
