@@ -20,13 +20,17 @@ interface Props {
   userId: string
   onClose: () => void
   onSaved: () => void
+  // Called after a "Save & add another" — refresh data but keep the sheet open.
+  onSavedContinue?: () => void
+  // Pre-select a category (used by the onboarding quick-start slots).
+  initialCategory?: ClothingCategory
 }
 
-export default function AddItemModal({ userId, onClose, onSaved }: Props) {
+export default function AddItemModal({ userId, onClose, onSaved, onSavedContinue, initialCategory }: Props) {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<ClothingCategory>('tops')
+  const [category, setCategory] = useState<ClothingCategory>(initialCategory ?? 'tops')
   const [color, setColor] = useState('')
   const [brand, setBrand] = useState('')
   const [seasons, setSeasons] = useState<string[]>([])
@@ -44,6 +48,8 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
     const reader = new FileReader()
     reader.onload = (e) => setImagePreview(e.target?.result as string)
     reader.readAsDataURL(file)
+    // Auto-fill fields the moment a photo is added — no extra tap required.
+    analyzeWithAI(file)
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,8 +64,9 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
     if (file) handleFile(file)
   }
 
-  async function analyzeWithAI() {
-    if (!imageFile) return
+  async function analyzeWithAI(file?: File) {
+    const target = file ?? imageFile
+    if (!target) return
     setAnalyzing(true)
     setError('')
     try {
@@ -71,7 +78,7 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
           resolve(result.split(',')[1])
         }
         reader.onerror = reject
-        reader.readAsDataURL(imageFile)
+        reader.readAsDataURL(target)
       })
 
       const res = await fetch('/api/wardrobe/analyze', {
@@ -79,7 +86,7 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64: base64,
-          mediaType: imageFile.type,
+          mediaType: target.type,
         }),
       })
 
@@ -101,7 +108,18 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
     }
   }
 
-  async function handleSave(e: React.FormEvent) {
+  function resetForm() {
+    setImageFile(null)
+    setImagePreview(null)
+    setName('')
+    setColor('')
+    setBrand('')
+    // Keep category + seasons — cataloging usually happens one category at a time.
+    setError('')
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function handleSave(e: React.FormEvent, keepOpen = false) {
     e.preventDefault()
     if (!name.trim()) { setError('Name is required'); return }
     setSaving(true)
@@ -151,7 +169,13 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
         return
       }
 
-      onSaved()
+      setSaving(false)
+      if (keepOpen) {
+        resetForm()
+        onSavedContinue?.()
+      } else {
+        onSaved()
+      }
     } catch {
       setError('Something went wrong')
       setSaving(false)
@@ -242,7 +266,7 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
               {imageFile && (
                 <button
                   type="button"
-                  onClick={analyzeWithAI}
+                  onClick={() => analyzeWithAI()}
                   disabled={analyzing}
                   className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50"
                   style={{ background: '#F5EEF3', color: '#725265' }}
@@ -252,7 +276,7 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
                   ) : (
                     <Sparkles size={15} />
                   )}
-                  {analyzing ? 'Analyzing…' : 'Auto-fill with AI'}
+                  {analyzing ? 'Analyzing your photo…' : 'Re-run AI auto-fill'}
                 </button>
               )}
             </div>
@@ -349,14 +373,24 @@ export default function AddItemModal({ userId, onClose, onSaved }: Props) {
               <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-xl">{error}</p>
             )}
 
-            <button
-              type="submit"
-              disabled={saving || !name.trim()}
-              className="w-full py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90 disabled:opacity-50 mt-1"
-              style={{ background: '#AA8EA0' }}
-            >
-              {saving ? 'Saving…' : 'Save to wardrobe'}
-            </button>
+            <div className="flex gap-2 mt-1">
+              <button
+                type="button"
+                onClick={(e) => handleSave(e, true)}
+                disabled={saving || !name.trim()}
+                className="flex-1 py-3.5 rounded-full font-medium text-sm transition-all hover:opacity-80 disabled:opacity-50 border border-stone-200 text-stone-600"
+              >
+                {saving ? 'Saving…' : 'Save & add another'}
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !name.trim()}
+                className="flex-1 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: '#AA8EA0' }}
+              >
+                {saving ? 'Saving…' : 'Save & close'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

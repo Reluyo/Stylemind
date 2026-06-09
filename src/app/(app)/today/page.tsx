@@ -197,6 +197,21 @@ export default function TodayPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
 
+  // Fire the first generation automatically when arriving from onboarding's
+  // quick-start (?generate=1) — this is the activation "aha" moment. Reading
+  // location directly avoids forcing a Suspense boundary on the whole page.
+  const autoGenRef = useRef(false)
+  useEffect(() => {
+    if (autoGenRef.current) return
+    if (typeof window === 'undefined') return
+    if (!new URLSearchParams(window.location.search).get('generate')) return
+    if (!items.length || !weather) return
+    autoGenRef.current = true
+    window.history.replaceState(null, '', '/today')
+    generateOutfits()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, weather])
+
   const currentSeason = weather?.season ?? ''
   const suggestedItems = [
     ...items.filter((i) => i.season?.includes(currentSeason) || i.season?.includes('All')),

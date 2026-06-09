@@ -423,6 +423,7 @@ function WardrobePageInner() {
             setLoading(true)
             loadItems()
           }}
+          onSavedContinue={() => { loadItems() }}
         />
       )}
 

@@ -3,12 +3,23 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { MapPin, LocateFixed, Loader2, Sparkles, Shirt, Check, ArrowRight } from 'lucide-react'
+import { MapPin, LocateFixed, Loader2, Sparkles, Shirt, Check, ArrowRight, Plus } from 'lucide-react'
+import AddItemModal from '@/components/AddItemModal'
+import type { ClothingCategory } from '@/lib/types'
 
 const STYLE_OPTIONS = [
   'Minimalist', 'Classic', 'Bohemian', 'Streetwear',
   'Sporty', 'Feminine', 'Edgy', 'Preppy',
   'Business Casual', 'Eclectic',
+]
+
+// The minimum spread to generate a believable first outfit.
+const QUICK_SLOTS: { label: string; category: ClothingCategory }[] = [
+  { label: 'A top', category: 'tops' },
+  { label: 'Bottoms', category: 'bottoms' },
+  { label: 'Shoes', category: 'shoes' },
+  { label: 'Outerwear', category: 'outerwear' },
+  { label: 'Accessory', category: 'accessories' },
 ]
 
 export default function OnboardingPage() {
@@ -19,6 +30,9 @@ export default function OnboardingPage() {
   const [detecting, setDetecting] = useState(false)
   const [stylePrefs, setStylePrefs] = useState<string[]>([])
   const [finishing, setFinishing] = useState(false)
+  // Quick-start (step 4) state: which categories the user has filled.
+  const [filledCats, setFilledCats] = useState<ClothingCategory[]>([])
+  const [addingCat, setAddingCat] = useState<ClothingCategory | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -64,26 +78,36 @@ export default function OnboardingPage() {
     setStylePrefs((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
   }
 
-  // Persist location + style prefs and mark onboarded. `withSample` seeds a
-  // demo wardrobe so the user reaches the "aha" (real outfit generation)
-  // without first uploading a dozen photos.
-  async function finish(withSample: boolean) {
-    if (!userId) return
-    setFinishing(true)
+  // Persist location + style prefs and mark onboarded.
+  async function saveProfile() {
     const supabase = createClient()
     await supabase.from('profiles').update({
       location: location.trim() || null,
       style_preferences: stylePrefs,
       onboarded: true,
     }).eq('id', userId)
+  }
 
-    if (withSample) {
-      await supabase.rpc('seed_demo_wardrobe', { p_user_id: userId })
-      router.replace('/today')
-    } else {
-      // Send them to the wardrobe with the add sheet primed.
-      router.replace('/wardrobe?add=1')
-    }
+  // Seed a demo wardrobe so the user reaches the "aha" (real outfit
+  // generation) without first uploading a dozen photos.
+  async function finishWithSample() {
+    if (!userId) return
+    setFinishing(true)
+    const supabase = createClient()
+    await saveProfile()
+    await supabase.rpc('seed_demo_wardrobe', { p_user_id: userId })
+    router.replace('/today')
+    router.refresh()
+  }
+
+  // Finish from the quick-start grid. The user has added a few real items —
+  // mark onboarded and drop them on Today, which auto-generates the first
+  // outfit. `?generate=1` tells Today to fire generation immediately.
+  async function finishQuickStart() {
+    if (!userId) return
+    setFinishing(true)
+    await saveProfile()
+    router.replace('/today?generate=1')
     router.refresh()
   }
 
@@ -188,7 +212,7 @@ export default function OnboardingPage() {
           </p>
 
           <button
-            onClick={() => finish(true)}
+            onClick={finishWithSample}
             disabled={finishing}
             className="w-full text-left rounded-2xl border-2 p-4 mb-3 transition-all hover:opacity-90 disabled:opacity-60"
             style={{ borderColor: '#AA8EA0', background: '#FAF6F9' }}
@@ -205,7 +229,7 @@ export default function OnboardingPage() {
           </button>
 
           <button
-            onClick={() => finish(false)}
+            onClick={() => setStep(4)}
             disabled={finishing}
             className="w-full text-left rounded-2xl border border-stone-200 p-4 transition-all hover:bg-stone-50 disabled:opacity-60"
           >
@@ -229,6 +253,72 @@ export default function OnboardingPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {step === 4 && (
+        <div className="flex-1 flex flex-col">
+          <h1 className="font-serif text-2xl font-bold text-stone-900 mb-1.5">Add a few pieces</h1>
+          <p className="text-sm text-stone-500 mb-6 leading-relaxed">
+            Add at least a top, bottoms and shoes — that&apos;s enough for your first outfit. AI fills in the
+            details from each photo.
+          </p>
+
+          <div className="space-y-2.5">
+            {QUICK_SLOTS.map(({ label, category }) => {
+              const done = filledCats.includes(category)
+              return (
+                <button
+                  key={category}
+                  onClick={() => setAddingCat(category)}
+                  className="w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all hover:bg-stone-50"
+                  style={done ? { borderColor: '#AA8EA0', background: '#FAF6F9' } : { borderColor: '#e7e3e6' }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: done ? '#AA8EA0' : '#F5EEF3' }}
+                  >
+                    {done ? <Check size={16} className="text-white" /> : <Plus size={16} style={{ color: '#AA8EA0' }} />}
+                  </div>
+                  <p className="font-medium text-stone-800 text-sm">{label}</p>
+                  {done && <span className="ml-auto text-xs font-medium" style={{ color: '#AA8EA0' }}>Added</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-auto pt-8 flex gap-3">
+            <button
+              onClick={() => setStep(3)}
+              className="px-5 py-3.5 rounded-full font-medium text-sm border border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
+            >
+              Back
+            </button>
+            <button
+              onClick={finishQuickStart}
+              disabled={finishing || filledCats.length < 2}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: '#AA8EA0' }}
+            >
+              {finishing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {filledCats.length < 2 ? 'Add a couple items' : 'Generate my first outfit'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addingCat && (
+        <AddItemModal
+          userId={userId}
+          initialCategory={addingCat}
+          onClose={() => setAddingCat(null)}
+          onSaved={() => {
+            setFilledCats((prev) => prev.includes(addingCat) ? prev : [...prev, addingCat])
+            setAddingCat(null)
+          }}
+          onSavedContinue={() => {
+            setFilledCats((prev) => prev.includes(addingCat) ? prev : [...prev, addingCat])
+          }}
+        />
       )}
     </div>
   )
