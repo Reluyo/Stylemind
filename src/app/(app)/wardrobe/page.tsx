@@ -4,10 +4,11 @@ import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X } from 'lucide-react'
+import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X, ScanLine } from 'lucide-react'
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
 import { FREE_ITEM_LIMIT } from '@/lib/plan'
 import AddItemModal from '@/components/AddItemModal'
+import DetectOutfitModal from '@/components/DetectOutfitModal'
 import EditItemModal from '@/components/EditItemModal'
 import ShareOutfitModal from '@/components/ShareOutfitModal'
 import WardrobeFooterAd from '@/components/ads/WardrobeFooterAd'
@@ -48,6 +49,7 @@ function WardrobePageInner() {
   const [showFavsOnly, setShowFavsOnly] = useState(false)
   const [showFavOutfitsOnly, setShowFavOutfitsOnly] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showDetectModal, setShowDetectModal] = useState(false)
   const [limitHit, setLimitHit] = useState(false)
   const [tab, setTab] = useState<Tab>('items')
 
@@ -56,6 +58,11 @@ function WardrobePageInner() {
   function openAdd() {
     if (atItemLimit) { setLimitHit(true); return }
     setShowAddModal(true)
+  }
+
+  function openDetect() {
+    if (atItemLimit) { setLimitHit(true); return }
+    setShowDetectModal(true)
   }
 
   async function loadItems() {
@@ -180,14 +187,24 @@ function WardrobePageInner() {
             </p>
           </div>
           {tab === 'items' && (
-            <button
-              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
-              style={{ background: '#AA8EA0' }}
-              onClick={openAdd}
-            >
-              <Plus size={14} />
-              Add item
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
+                onClick={openDetect}
+                title="Add items from an outfit photo"
+              >
+                <ScanLine size={14} />
+                From photo
+              </button>
+              <button
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
+                style={{ background: '#AA8EA0' }}
+                onClick={openAdd}
+              >
+                <Plus size={14} />
+                Add item
+              </button>
+            </div>
           )}
         </div>
 
@@ -424,6 +441,18 @@ function WardrobePageInner() {
             loadItems()
           }}
           onSavedContinue={() => { loadItems() }}
+        />
+      )}
+
+      {showDetectModal && (
+        <DetectOutfitModal
+          userId={userId}
+          onClose={() => setShowDetectModal(false)}
+          onSaved={() => {
+            setShowDetectModal(false)
+            setLoading(true)
+            loadItems()
+          }}
         />
       )}
 
