@@ -37,7 +37,9 @@ export default function EditItemModal({ item, onClose, onSaved }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleFile(file: File) {
-    if (!file.type.startsWith('image/')) return
+    if (!file.type.startsWith('image/')) { setError('Please choose an image file.'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('Image is too large — max 5 MB.'); return }
+    setError('')
     setImageFile(file)
     const reader = new FileReader()
     reader.onload = (e) => setImagePreview(e.target?.result as string)

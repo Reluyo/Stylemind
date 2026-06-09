@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Calendar, User } from 'lucide-react'
+import { Home, Calendar, User, Luggage } from 'lucide-react'
 
 function DressFormIcon({ size = 20, active = false }: { size?: number; active?: boolean }) {
   const color = active ? '#AA8EA0' : '#a8a29e'
@@ -29,6 +29,7 @@ const tabs = [
   { href: '/today', label: 'Today', icon: 'home' },
   { href: '/wardrobe', label: 'Wardrobe', icon: 'dress' },
   { href: '/planner', label: 'Planner', icon: 'calendar' },
+  { href: '/trip-planner', label: 'Trips', icon: 'luggage' },
   { href: '/profile', label: 'Profile', icon: 'user' },
 ] as const
 
@@ -45,13 +46,14 @@ export default function BottomNav() {
           <Link
             key={href}
             href={href}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 text-xs font-medium transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-2.5 py-1 text-xs font-medium transition-colors ${
               active ? 'text-[#AA8EA0]' : 'text-stone-400 hover:text-stone-600'
             }`}
           >
             {icon === 'home' && <Home size={20} strokeWidth={sw} color={color} />}
             {icon === 'dress' && <DressFormIcon size={20} active={active} />}
             {icon === 'calendar' && <Calendar size={20} strokeWidth={sw} color={color} />}
+            {icon === 'luggage' && <Luggage size={20} strokeWidth={sw} color={color} />}
             {icon === 'user' && <User size={20} strokeWidth={sw} color={color} />}
             <span>{label}</span>
           </Link>

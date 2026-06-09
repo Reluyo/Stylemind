@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { getStripe, STRIPE_PRO_PRICE_ID } from '@/lib/stripe'
+import { TRIAL_DAYS } from '@/lib/plan'
 import { cookies } from 'next/headers'
 
 export async function POST() {
@@ -42,6 +43,7 @@ export async function POST() {
     cancel_url: `${baseUrl}/profile`,
     metadata: { supabase_user_id: user.id },
     subscription_data: {
+      trial_period_days: TRIAL_DAYS,
       metadata: { supabase_user_id: user.id },
     },
   })

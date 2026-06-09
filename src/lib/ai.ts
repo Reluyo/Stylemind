@@ -24,17 +24,18 @@ export function buildWeatherContext(weather: WeatherSummary): string {
   return `${dayName}, ${dateStr}. ${weather.location}. ${weather.temp_f}°F, ${weather.condition}. Season: ${weather.season}. Work day.`
 }
 
-// Generate 5 outfit suggestions
+// Generate outfit suggestions (count varies by plan)
 export async function generateOutfits(
   items: ClothingItem[],
   weather: WeatherSummary,
-  stylePreferences: string[] = []
+  stylePreferences: string[] = [],
+  count = 5
 ): Promise<AIOutfitSuggestion[]> {
   const styleNote = stylePreferences.length
     ? `\n- The user's style preferences are: ${stylePreferences.join(', ')}. Lean into these aesthetics.`
     : ''
 
-  const systemPrompt = `You are StyleMind, a personal AI stylist. Given a user's wardrobe and the day's weather/context, suggest exactly 5 outfit combinations.
+  const systemPrompt = `You are StyleMind, a personal AI stylist. Given a user's wardrobe and the day's weather/context, suggest exactly ${count} outfit combinations.
 
 Respond ONLY with valid JSON — no markdown, no extra text. Format:
 {"outfits":[{"name":"string","occasion":"string","items":["item name 1","item name 2","item name 3"],"style_tag":"string","reason":"string (1 short sentence why this works today)"}]}
@@ -45,7 +46,7 @@ Rules:
 - Vary the occasions (e.g. work, casual, smart casual, evening, sporty).
 - Keep reasons concise and weather/day relevant.${styleNote}`
 
-  const userMsg = `Wardrobe:\n${buildWardrobeSummary(items)}\n\nContext: ${buildWeatherContext(weather)}\n\nSuggest 5 outfits.`
+  const userMsg = `Wardrobe:\n${buildWardrobeSummary(items)}\n\nContext: ${buildWeatherContext(weather)}\n\nSuggest ${count} outfits.`
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',

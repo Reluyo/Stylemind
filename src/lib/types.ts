@@ -15,6 +15,9 @@ export interface Profile {
   viz_reset_month: string
   notification_frequency: 'daily' | 'weekly' | 'none'
   stripe_customer_id: string | null
+  onboarded: boolean
+  outfit_gen_date: string | null
+  outfit_gen_count: number
   created_at: string
   updated_at: string
 }

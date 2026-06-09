@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getUserAndProfile } from '@/lib/auth-server'
 
 const VALID_CATEGORIES = ['tops', 'bottoms', 'dresses', 'shoes', 'accessories', 'outerwear']
 
@@ -7,6 +8,10 @@ export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'AI analysis unavailable' }, { status: 503 })
   }
+
+  // Require a session so this AI endpoint can't be hit anonymously.
+  const { user } = await getUserAndProfile()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { imageBase64, mediaType } = await req.json()

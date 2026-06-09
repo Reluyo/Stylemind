@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X } from 'lucide-react'
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
+import { FREE_ITEM_LIMIT } from '@/lib/plan'
 import AddItemModal from '@/components/AddItemModal'
 import EditItemModal from '@/components/EditItemModal'
 import ShareOutfitModal from '@/components/ShareOutfitModal'
@@ -34,6 +36,7 @@ type OutfitWithItems = Outfit & { outfit_items?: { clothing_items: { name: strin
 
 export default function WardrobePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [userId, setUserId] = useState('')
   const [items, setItems] = useState<ClothingItem[]>([])
   const [savedOutfits, setSavedOutfits] = useState<OutfitWithItems[]>([])
@@ -45,7 +48,15 @@ export default function WardrobePage() {
   const [showFavsOnly, setShowFavsOnly] = useState(false)
   const [showFavOutfitsOnly, setShowFavOutfitsOnly] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [limitHit, setLimitHit] = useState(false)
   const [tab, setTab] = useState<Tab>('items')
+
+  const atItemLimit = !isPro && items.length >= FREE_ITEM_LIMIT
+
+  function openAdd() {
+    if (atItemLimit) { setLimitHit(true); return }
+    setShowAddModal(true)
+  }
 
   async function loadItems() {
     const supabase = createClient()
@@ -81,6 +92,18 @@ export default function WardrobePage() {
     loadItems()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
+
+  // Deep link from onboarding / Today empty-state: open the add sheet once
+  // the wardrobe has loaded, then strip the query param.
+  useEffect(() => {
+    if (loading) return
+    if (searchParams.get('add') === '1') {
+      if (!isPro && items.length >= FREE_ITEM_LIMIT) setLimitHit(true)
+      else setShowAddModal(true)
+      router.replace('/wardrobe')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   const filtered = items.filter((item) => {
     const matchCat = category === 'all' || item.category === category
@@ -151,13 +174,16 @@ export default function WardrobePage() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="font-serif text-2xl font-bold text-stone-900">Wardrobe</h1>
-            <p className="text-xs text-stone-400 mt-0.5">{items.length} items · {savedOutfits.length} outfits</p>
+            <p className="text-xs text-stone-400 mt-0.5">
+              {items.length} items · {savedOutfits.length} outfits
+              {!isPro && <span className={atItemLimit ? 'text-red-400 font-medium' : ''}> · {items.length}/{FREE_ITEM_LIMIT}</span>}
+            </p>
           </div>
           {tab === 'items' && (
             <button
               className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
               style={{ background: '#AA8EA0' }}
-              onClick={() => setShowAddModal(true)}
+              onClick={openAdd}
             >
               <Plus size={14} />
               Add item
@@ -398,6 +424,35 @@ export default function WardrobePage() {
             loadItems()
           }}
         />
+      )}
+
+      {limitHit && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setLimitHit(false) }}
+        >
+          <div className="w-full max-w-[430px] bg-white rounded-t-3xl px-6 pt-3 pb-10">
+            <div className="flex justify-center pb-3"><div className="w-10 h-1 rounded-full bg-stone-200" /></div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-serif text-xl font-bold text-stone-900">Wardrobe is full</h2>
+              <button onClick={() => setLimitHit(false)} className="p-1.5 rounded-full hover:bg-stone-100">
+                <X size={18} className="text-stone-500" />
+              </button>
+            </div>
+            <p className="text-sm text-stone-500 leading-relaxed mb-5">
+              Free accounts hold up to {FREE_ITEM_LIMIT} items. Upgrade to Pro for an unlimited wardrobe,
+              5 daily outfits, AI Stylist chat, and try-on.
+            </p>
+            <Link
+              href="/profile"
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90"
+              style={{ background: '#AA8EA0' }}
+            >
+              <Sparkles size={15} /> Upgrade to Pro
+            </Link>
+          </div>
+        </div>
       )}
 
       {!loading && !isPro && <WardrobeFooterAd />}
