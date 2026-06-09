@@ -14,12 +14,39 @@ const CATEGORIES: { label: string; value: ClothingCategory }[] = [
   { label: 'Outerwear', value: 'outerwear' },
 ]
 
+interface Box { x: number; y: number; w: number; h: number }
+
 interface DetectedItem {
   name: string
   category: ClothingCategory
   color: string
   tags: string[]
+  box: Box | null
   selected: boolean
+}
+
+// Crop a region (with a little padding) out of an image file into a PNG blob.
+function cropToBox(file: File, box: Box, pad = 0.04): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const objUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl)
+      const px = Math.max(0, box.x - pad) * img.width
+      const py = Math.max(0, box.y - pad) * img.height
+      const sw = Math.min(img.width - px, (box.w + pad * 2) * img.width)
+      const sh = Math.min(img.height - py, (box.h + pad * 2) * img.height)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(sw))
+      canvas.height = Math.max(1, Math.round(sh))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('no ctx')); return }
+      ctx.drawImage(img, px, py, sw, sh, 0, 0, sw, sh)
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error('no blob')), 'image/png')
+    }
+    img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('load failed')) }
+    img.src = objUrl
+  })
 }
 
 interface Props {
@@ -33,6 +60,7 @@ export default function DetectOutfitModal({ userId, onClose, onSaved }: Props) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingMsg, setSavingMsg] = useState('')
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [items, setItems] = useState<DetectedItem[]>([])
@@ -82,6 +110,7 @@ export default function DetectOutfitModal({ userId, onClose, onSaved }: Props) {
       setItems(
         (data.items as Omit<DetectedItem, 'selected'>[]).map((it) => ({ ...it, selected: true }))
       )
+      setError('')
     } catch {
       setError('Something went wrong analyzing the photo.')
     } finally {
@@ -104,50 +133,81 @@ export default function DetectOutfitModal({ userId, onClose, onSaved }: Props) {
   async function saveSelected() {
     const chosen = items.filter((it) => it.selected && it.name.trim())
     if (!chosen.length) { setError('Select at least one item to save.'); return }
+    if (!imageFile) { setError('No photo to save.'); return }
     setSaving(true)
     setError('')
+
+    const supabase = createClient()
+
+    async function uploadBlob(blob: Blob, suffix: string): Promise<string | null> {
+      const path = `${userId}/${Date.now()}-${suffix}-${Math.random().toString(36).slice(2, 7)}.png`
+      const { error: upErr } = await supabase.storage
+        .from('wardrobe-images')
+        .upload(path, blob, { contentType: blob.type || 'image/png', upsert: false })
+      if (upErr) return null
+      return supabase.storage.from('wardrobe-images').getPublicUrl(path).data.publicUrl
+    }
+
     try {
-      const supabase = createClient()
+      // Fall back to the whole outfit photo only for items with no usable box.
+      let fullUrl: string | null = null
+      const needFull = chosen.some((it) => !it.box)
+      if (needFull) fullUrl = await uploadBlob(imageFile, 'outfit')
 
-      // Upload the outfit photo once; every detected item references it as a
-      // visual until the user replaces it with an isolated shot.
-      let imageUrl: string | null = null
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop() ?? 'jpg'
-        const path = `${userId}/${Date.now()}-outfit.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('wardrobe-images')
-          .upload(path, imageFile, { contentType: imageFile.type, upsert: false })
-        if (uploadError) {
-          setError('Image upload failed: ' + uploadError.message)
-          setSaving(false)
-          return
+      setSavingMsg(`Cutting out ${chosen.length} item${chosen.length === 1 ? '' : 's'}…`)
+
+      // Crop + clean each item in parallel. Each step degrades gracefully:
+      // clean cutout → raw crop → full outfit photo.
+      const rows = await Promise.all(chosen.map(async (it, i) => {
+        let imageUrl = fullUrl
+        if (it.box) {
+          try {
+            const crop = await cropToBox(imageFile!, it.box)
+            const cropUrl = await uploadBlob(crop, `item${i}`)
+            imageUrl = cropUrl ?? fullUrl
+            // Best-effort background removal for a clean isolated cutout.
+            if (cropUrl) {
+              try {
+                const res = await fetch('/api/wardrobe/remove-bg', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ imageUrl: cropUrl }),
+                })
+                if (res.ok) {
+                  const { imageUrl: cleanUrl } = await res.json()
+                  const cleanBlob = await (await fetch(cleanUrl)).blob()
+                  const finalUrl = await uploadBlob(cleanBlob, `item${i}-clean`)
+                  if (finalUrl) imageUrl = finalUrl
+                }
+              } catch { /* keep the raw crop */ }
+            }
+          } catch { /* keep fullUrl */ }
         }
-        imageUrl = supabase.storage.from('wardrobe-images').getPublicUrl(path).data.publicUrl
-      }
-
-      const rows = chosen.map((it) => ({
-        user_id: userId,
-        name: it.name.trim(),
-        category: it.category,
-        color: it.color.trim() || null,
-        brand: null,
-        season: [],
-        image_url: imageUrl,
-        thumbnail_url: imageUrl,
-        tags: it.tags,
+        return {
+          user_id: userId,
+          name: it.name.trim(),
+          category: it.category,
+          color: it.color.trim() || null,
+          brand: null,
+          season: [],
+          image_url: imageUrl,
+          thumbnail_url: imageUrl,
+          tags: it.tags,
+        }
       }))
 
       const { error: insertError } = await supabase.from('clothing_items').insert(rows)
       if (insertError) {
         setError('Failed to save items: ' + insertError.message)
         setSaving(false)
+        setSavingMsg('')
         return
       }
       onSaved()
     } catch {
       setError('Something went wrong')
       setSaving(false)
+      setSavingMsg('')
     }
   }
 
@@ -265,8 +325,12 @@ export default function DetectOutfitModal({ userId, onClose, onSaved }: Props) {
                 style={{ background: '#AA8EA0' }}
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                {saving ? 'Saving…' : `Add ${selectedCount} item${selectedCount === 1 ? '' : 's'} to wardrobe`}
+                {saving ? (savingMsg || 'Saving…') : `Add ${selectedCount} item${selectedCount === 1 ? '' : 's'} to wardrobe`}
               </button>
+              <p className="text-xs text-stone-400 text-center mt-2.5 leading-relaxed">
+                We isolate each piece automatically. For the sharpest AI try-on,
+                you can later swap in a clean, flat photo of any item.
+              </p>
             </div>
           )}
         </div>

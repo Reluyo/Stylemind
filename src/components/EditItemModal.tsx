@@ -157,6 +157,9 @@ export default function EditItemModal({ item, onClose, onSaved }: Props) {
           <form onSubmit={handleSave} className="space-y-5">
             <div>
               <label className="block text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Photo</label>
+              <p className="text-xs text-stone-400 mb-2 leading-relaxed">
+                A clean, flat photo of just this item gives the best AI try-on results.
+              </p>
               <div
                 className={`relative rounded-2xl border-2 border-dashed transition-colors cursor-pointer ${
                   dragging ? 'border-[#AA8EA0] bg-[#FAF6F9]' : 'border-stone-200 bg-stone-50'

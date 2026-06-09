@@ -40,8 +40,10 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: `This is a photo of a person wearing an outfit. Identify each distinct clothing item and accessory they are wearing (e.g. shirt, jacket, trousers, shoes, bag, belt, hat, sunglasses, watch). Ignore the person, background, and anything not worn.
 
+For each item also give a tight bounding box around just that item, as fractions of the image (0-1): x,y = top-left corner, w,h = width,height.
+
 Respond ONLY with valid JSON (no markdown), an array of items:
-[{"name":"descriptive item name","category":"one of: tops/bottoms/dresses/shoes/accessories/outerwear","color":"main color(s)","tags":["2-4 style tags like casual/formal/summer"]}]
+[{"name":"descriptive item name","category":"one of: tops/bottoms/dresses/shoes/accessories/outerwear","color":"main color(s)","tags":["2-4 style tags like casual/formal/summer"],"box":{"x":0.0,"y":0.0,"w":0.0,"h":0.0}}]
 
 Only include items you can clearly see. If you can only see part of an item, still include it. Do not invent items.`,
             },
@@ -66,15 +68,29 @@ Only include items you can clearly see. If you can only see part of an item, sti
       return NextResponse.json({ error: 'No items detected.' }, { status: 422 })
     }
 
+    // Clamp a bounding-box value into the valid 0-1 range.
+    const clamp01 = (n: unknown) => {
+      const v = typeof n === 'number' ? n : Number(n)
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : null
+    }
+
     // Sanitize each detected item.
     const items = parsed
       .filter((it): it is Record<string, unknown> => !!it && typeof it === 'object')
-      .map((it) => ({
-        name: typeof it.name === 'string' ? it.name.slice(0, 80) : 'Clothing item',
-        category: VALID_CATEGORIES.includes(it.category as string) ? (it.category as string) : 'tops',
-        color: typeof it.color === 'string' ? it.color.slice(0, 40) : '',
-        tags: Array.isArray(it.tags) ? it.tags.filter((t) => typeof t === 'string').slice(0, 4) : [],
-      }))
+      .map((it) => {
+        const b = (it.box ?? {}) as Record<string, unknown>
+        const x = clamp01(b.x), y = clamp01(b.y), w = clamp01(b.w), h = clamp01(b.h)
+        const box = x !== null && y !== null && w !== null && h !== null && w > 0 && h > 0
+          ? { x, y, w, h }
+          : null
+        return {
+          name: typeof it.name === 'string' ? it.name.slice(0, 80) : 'Clothing item',
+          category: VALID_CATEGORIES.includes(it.category as string) ? (it.category as string) : 'tops',
+          color: typeof it.color === 'string' ? it.color.slice(0, 40) : '',
+          tags: Array.isArray(it.tags) ? it.tags.filter((t) => typeof t === 'string').slice(0, 4) : [],
+          box,
+        }
+      })
 
     if (!items.length) {
       return NextResponse.json({ error: 'No items detected in this photo.' }, { status: 422 })
