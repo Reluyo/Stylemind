@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -34,7 +34,7 @@ const CATEGORY_COLORS: Record<ClothingCategory, string> = {
 type Tab = 'items' | 'outfits' | 'stats'
 type OutfitWithItems = Outfit & { outfit_items?: { clothing_items: { name: string; category: string } | null }[] }
 
-export default function WardrobePage() {
+function WardrobePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [userId, setUserId] = useState('')
@@ -642,5 +642,13 @@ function SavedOutfitCard({
 
       {sharing && <ShareOutfitModal outfit={outfit} onClose={() => setSharing(false)} />}
     </>
+  )
+}
+
+export default function WardrobePage() {
+  return (
+    <Suspense fallback={null}>
+      <WardrobePageInner />
+    </Suspense>
   )
 }
