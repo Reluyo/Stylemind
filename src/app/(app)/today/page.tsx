@@ -471,6 +471,18 @@ export default function TodayPage() {
 
 type VizState = 'idle' | 'loading' | 'done' | 'error'
 
+// Fuzzy-match an AI-suggested item name to a wardrobe ClothingItem.
+function matchItem(name: string, wardrobeItems: ClothingItem[]): ClothingItem | undefined {
+  const n = name.toLowerCase()
+  return (
+    wardrobeItems.find((wi) => wi.name.toLowerCase() === n) ??
+    wardrobeItems.find(
+      (wi) =>
+        wi.name.toLowerCase().includes(n) || n.includes(wi.name.toLowerCase())
+    )
+  )
+}
+
 function OutfitCard({
   outfit,
   wardrobeItems,
@@ -503,6 +515,12 @@ function OutfitCard({
   const oKey = outfit.occasion?.toLowerCase() ?? ''
   const bgColor = Object.entries(OCCASION_COLORS).find(([k]) => oKey.includes(k))?.[1] ?? '#F5EEF3'
   const textDark = bgColor === '#251828'
+
+  // Resolve each suggested item name to its wardrobe entry (with photo).
+  const matchedItems = outfit.items.map((name) => ({
+    name,
+    item: matchItem(name, wardrobeItems),
+  }))
 
   const hasGarmentPhoto = outfit.items.some((name) =>
     wardrobeItems.some(
@@ -595,7 +613,7 @@ function OutfitCard({
       <div className="flex items-center gap-3 px-4 py-3.5">
         <div className="flex-1 min-w-0">
           <h3 className="font-serif font-semibold text-stone-900 text-base leading-snug truncate">{outfit.name}</h3>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 mb-2.5">
             <span
               className="text-xs font-medium px-2.5 py-0.5 rounded-full"
               style={{ background: bgColor, color: textDark ? '#F8F5F7' : '#4a3545' }}
@@ -605,6 +623,31 @@ function OutfitCard({
             <span className="text-xs px-2.5 py-0.5 rounded-full" style={{ background: '#F5EEF3', color: '#725265' }}>
               {outfit.style_tag}
             </span>
+          </div>
+          {/* Thumbnail strip — collapsed preview of each item */}
+          <div className="flex gap-1.5">
+            {matchedItems.slice(0, 5).map(({ name, item }) => {
+              const photo = item?.thumbnail_url ?? item?.image_url
+              const catColor = CATEGORY_COLORS[item?.category ?? ''] ?? '#F5EEF3'
+              return (
+                <div
+                  key={name}
+                  className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-white shadow-sm"
+                  style={{ background: catColor }}
+                  title={name}
+                >
+                  {photo ? (
+                    <img src={photo} alt={name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-xs font-bold" style={{ color: '#AA8EA0' }}>
+                        {name.slice(0, 1).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -662,14 +705,31 @@ function OutfitCard({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-stone-50">
-          <ul className="space-y-1 mb-3">
-            {outfit.items.map((item) => (
-              <li key={item} className="flex items-center gap-2 text-sm text-stone-600">
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#AA8EA0' }} />
-                {item}
-              </li>
-            ))}
-          </ul>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-3">
+            {matchedItems.map(({ name, item }) => {
+              const photo = item?.thumbnail_url ?? item?.image_url
+              const catColor = CATEGORY_COLORS[item?.category ?? ''] ?? '#F5EEF3'
+              return (
+                <div key={name} className="flex-shrink-0 w-20">
+                  <div
+                    className="w-20 h-24 rounded-xl overflow-hidden border border-stone-100 mb-1"
+                    style={{ background: catColor }}
+                  >
+                    {photo ? (
+                      <img src={photo} alt={name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-lg font-bold" style={{ color: '#AA8EA0' }}>
+                          {name.slice(0, 1).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-600 leading-tight line-clamp-2">{name}</p>
+                </div>
+              )
+            })}
+          </div>
           <p className="text-xs text-stone-400 italic leading-relaxed">{outfit.reason}</p>
 
           {vizState === 'loading' && (
