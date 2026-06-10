@@ -53,7 +53,7 @@ export default function TodayPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, location, plan, profile_photo_url, style_preferences, onboarded')
+        .select('full_name, location, plan, profile_photo_url, style_preferences, style_expression, onboarded')
         .eq('id', user.id)
         .single()
 
@@ -66,6 +66,9 @@ export default function TodayPage() {
       const loc = profile?.location ?? 'New York'
       if (profile?.style_preferences?.length) {
         sessionStorage.setItem('sm_style_prefs', JSON.stringify(profile.style_preferences))
+      }
+      if (profile?.style_expression) {
+        sessionStorage.setItem('sm_style_expression', profile.style_expression)
       }
 
       // Restore today's already-generated outfits so a refresh doesn't wipe
@@ -131,6 +134,7 @@ export default function TodayPage() {
           items,
           weather,
           stylePreferences: JSON.parse(sessionStorage.getItem('sm_style_prefs') ?? '[]'),
+          styleExpression: sessionStorage.getItem('sm_style_expression') ?? 'no_preference',
         }),
       })
       const data = await res.json()

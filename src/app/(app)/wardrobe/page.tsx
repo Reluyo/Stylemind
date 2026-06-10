@@ -312,6 +312,12 @@ function WardrobePageInner() {
                 {filtered.map((item) => (
                   <ClothingCard key={item.id} item={item} onDelete={deleteItem} onFavToggle={updateItemFav} onEdit={updateItem} />
                 ))}
+                {/* Span full width so the ad sits below the grid */}
+                {!isPro && (
+                  <div className="col-span-2">
+                    <WardrobeFooterAd />
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -485,7 +491,6 @@ function WardrobePageInner() {
         </div>
       )}
 
-      {!loading && !isPro && <WardrobeFooterAd />}
     </div>
   )
 }

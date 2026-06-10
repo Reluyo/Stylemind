@@ -6,6 +6,7 @@ export interface Profile {
   avatar_url: string | null
   location: string | null
   style_preferences: string[]
+  style_expression: 'feminine' | 'masculine' | 'fluid' | 'no_preference'
   plan: Plan
   subscription_started_at: string | null
   subscription_expires_at: string | null

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { MapPin, LocateFixed, Loader2, Sparkles, Shirt, Check, ArrowRight, Plus, ScanLine, Camera } from 'lucide-react'
 import AddItemModal from '@/components/AddItemModal'
+import StyleExpressionPicker, { type StyleExpression } from '@/components/StyleExpressionPicker'
 import type { ClothingCategory } from '@/lib/types'
 
 const STYLE_OPTIONS = [
@@ -29,6 +30,7 @@ export default function OnboardingPage() {
   const [location, setLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [stylePrefs, setStylePrefs] = useState<string[]>([])
+  const [styleExpression, setStyleExpression] = useState<StyleExpression>('no_preference')
   const [finishing, setFinishing] = useState(false)
   // Quick-start (step 4) state: which categories the user has filled.
   const [filledCats, setFilledCats] = useState<ClothingCategory[]>([])
@@ -84,6 +86,7 @@ export default function OnboardingPage() {
     await supabase.from('profiles').update({
       location: location.trim() || null,
       style_preferences: stylePrefs,
+      style_expression: styleExpression,
       onboarded: true,
     }).eq('id', userId)
   }
@@ -177,7 +180,7 @@ export default function OnboardingPage() {
           <p className="text-sm text-stone-500 mb-6 leading-relaxed">
             Pick a few — StyleMind tailors every suggestion to match. You can change these anytime.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-7">
             {STYLE_OPTIONS.map((s) => {
               const active = stylePrefs.includes(s)
               return (
@@ -194,6 +197,8 @@ export default function OnboardingPage() {
               )
             })}
           </div>
+
+          <StyleExpressionPicker value={styleExpression} onChange={setStyleExpression} />
 
           <div className="mt-auto pt-8 flex gap-3">
             <button

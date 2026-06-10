@@ -9,10 +9,11 @@ export async function POST(req: NextRequest) {
     const { user, profile, supabase } = await getUserAndProfile()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { items, weather, stylePreferences }: {
+    const { items, weather, stylePreferences, styleExpression }: {
       items: ClothingItem[]
       weather: WeatherSummary
       stylePreferences?: string[]
+      styleExpression?: string
     } = await req.json()
     if (!items?.length) return NextResponse.json({ error: 'No wardrobe items provided' }, { status: 400 })
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const count = isPro ? PRO_OUTFIT_COUNT : FREE_OUTFIT_COUNT
-    const outfits = await generateOutfits(items, weather, stylePreferences ?? [], count)
+    const outfits = await generateOutfits(items, weather, stylePreferences ?? [], count, styleExpression ?? profile?.style_expression ?? 'no_preference')
 
     const remaining = isPro
       ? null

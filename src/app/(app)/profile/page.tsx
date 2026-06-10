@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon, LocateFixed, Bell, Lock } from 'lucide-react'
 import type { Profile } from '@/lib/types'
+import StyleExpressionPicker, { type StyleExpression } from '@/components/StyleExpressionPicker'
 
 const VIZ_LIMIT = 40
 
@@ -23,6 +24,7 @@ export default function ProfilePage() {
   const [reminderTime, setReminderTime] = useState('07:30')
   const [savingNotif, setSavingNotif] = useState(false)
   const [stylePrefs, setStylePrefs] = useState<string[]>([])
+  const [styleExpression, setStyleExpression] = useState<StyleExpression>('no_preference')
   const [savingStyle, setSavingStyle] = useState(false)
   const [checkingOut, setCheckingOut] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
@@ -50,6 +52,7 @@ export default function ProfilePage() {
       setNotifFreq(prof?.notification_frequency ?? 'daily')
       setReminderTime(prof?.morning_reminder_time ?? '07:30')
       setStylePrefs(prof?.style_preferences ?? [])
+      setStyleExpression((prof?.style_expression ?? 'no_preference') as StyleExpression)
       setLoading(false)
     }
     load()
@@ -115,8 +118,8 @@ export default function ProfilePage() {
     if (!profile) return
     setSavingStyle(true)
     const supabase = createClient()
-    await supabase.from('profiles').update({ style_preferences: stylePrefs }).eq('id', profile.id)
-    setProfile({ ...profile, style_preferences: stylePrefs })
+    await supabase.from('profiles').update({ style_preferences: stylePrefs, style_expression: styleExpression }).eq('id', profile.id)
+    setProfile({ ...profile, style_preferences: stylePrefs, style_expression: styleExpression })
     setSavingStyle(false)
   }
 
@@ -462,7 +465,7 @@ export default function ProfilePage() {
           <p className="text-xs text-stone-500 mb-3 leading-relaxed">
             Pick your styles — StyleMind will tailor outfit suggestions to match.
           </p>
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-5">
             {STYLE_OPTIONS.map((s) => {
               const active = stylePrefs.includes(s)
               return (
@@ -480,6 +483,11 @@ export default function ProfilePage() {
               )
             })}
           </div>
+
+          <div className="mb-4">
+            <StyleExpressionPicker value={styleExpression} onChange={setStyleExpression} />
+          </div>
+
           <button
             onClick={saveStylePrefs}
             disabled={savingStyle}
