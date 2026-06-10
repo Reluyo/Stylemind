@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { MapPin, LocateFixed, Loader2, Sparkles, Shirt, Check, ArrowRight, Plus } from 'lucide-react'
+import { MapPin, LocateFixed, Loader2, Sparkles, Shirt, Check, ArrowRight, Plus, ScanLine, Camera } from 'lucide-react'
 import AddItemModal from '@/components/AddItemModal'
 import type { ClothingCategory } from '@/lib/types'
 
@@ -111,11 +111,21 @@ export default function OnboardingPage() {
     router.refresh()
   }
 
+  // Skip quick-start: save profile, show the "how to add items" explainer
+  // (step 5) so the user isn't dropped on an empty Today with no context.
+  async function skipToExplainer() {
+    if (!userId) return
+    setFinishing(true)
+    await saveProfile()
+    setFinishing(false)
+    setStep(5)
+  }
+
   return (
     <div className="min-h-screen flex flex-col max-w-[430px] mx-auto px-6 pt-10 pb-8 relative z-10">
       {/* Progress dots */}
       <div className="flex items-center gap-2 mb-8">
-        {[1, 2, 3].map((s) => (
+        {[1, 2, 3, 4, 5].map((s) => (
           <div
             key={s}
             className="h-1.5 rounded-full flex-1 transition-all"
@@ -301,6 +311,68 @@ export default function OnboardingPage() {
             >
               {finishing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
               {filledCats.length < 2 ? 'Add a couple items' : 'Generate my first outfit'}
+            </button>
+          </div>
+          <button
+            onClick={skipToExplainer}
+            disabled={finishing}
+            className="w-full mt-3 text-center text-sm text-stone-400 hover:text-stone-600 transition-colors disabled:opacity-50"
+          >
+            Skip for now
+          </button>
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="flex-1 flex flex-col">
+          <h1 className="font-serif text-2xl font-bold text-stone-900 mb-1.5">Two ways to add clothes</h1>
+          <p className="text-sm text-stone-500 mb-7 leading-relaxed">
+            Whenever you&apos;re ready, here&apos;s how to build your wardrobe. Both options live in the
+            Wardrobe tab.
+          </p>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-stone-100 p-4 flex gap-4">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: '#F5EEF3' }}
+              >
+                <Camera size={20} style={{ color: '#AA8EA0' }} />
+              </div>
+              <div>
+                <p className="font-semibold text-stone-900 text-sm mb-1">One item at a time</p>
+                <p className="text-sm text-stone-500 leading-relaxed">
+                  Tap <strong>Add item</strong> and snap a photo of a single garment. AI fills in the
+                  name, category, and colour automatically — just review and save.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-stone-100 p-4 flex gap-4">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: '#F5EEF3' }}
+              >
+                <ScanLine size={20} style={{ color: '#AA8EA0' }} />
+              </div>
+              <div>
+                <p className="font-semibold text-stone-900 text-sm mb-1">From an outfit photo</p>
+                <p className="text-sm text-stone-500 leading-relaxed">
+                  Tap <strong>From photo</strong> and upload a picture of yourself wearing an outfit.
+                  AI detects every visible piece — jacket, trousers, shoes, accessories — and adds them
+                  as separate wardrobe items in one go.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-8">
+            <button
+              onClick={() => { router.replace('/today'); router.refresh() }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90"
+              style={{ background: '#AA8EA0' }}
+            >
+              Go to StyleMind <ArrowRight size={16} />
             </button>
           </div>
         </div>

@@ -19,9 +19,10 @@ export async function POST(req: NextRequest) {
 
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN })
 
-    // cjwbw/rembg — fast, reliable background removal.
+    // Use the deployment URL so we always get the latest published version
+    // without having to maintain a hardcoded version hash.
     const output = await replicate.run(
-      'cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003',
+      'cjwbw/rembg' as `${string}/${string}`,
       { input: { image: imageUrl } }
     )
 
