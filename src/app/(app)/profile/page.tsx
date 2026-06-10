@@ -199,7 +199,6 @@ export default function ProfilePage() {
           <input
             type="file"
             accept="image/*"
-            capture="user"
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0]
