@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Luggage, ChevronRight, Package, Minus, Plus, Copy, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Luggage, ChevronRight, Package, Minus, Plus, Copy, Check, Lock } from 'lucide-react'
 import type { ClothingItem } from '@/lib/types'
 
 interface TripDay {
@@ -32,14 +33,19 @@ export default function TripPlannerPage() {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'plan' | 'packing'>('plan')
   const [packed, setPacked] = useState<Set<string>>(new Set())
+  const [isPro, setIsPro] = useState(true)
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data } = await supabase.from('clothing_items').select('*').eq('user_id', user.id)
+      const [{ data }, { data: profile }] = await Promise.all([
+        supabase.from('clothing_items').select('*').eq('user_id', user.id),
+        supabase.from('profiles').select('plan').eq('id', user.id).single(),
+      ])
       setItems(data ?? [])
+      setIsPro(profile?.plan === 'pro')
     }
     load()
   }, [router])
@@ -80,6 +86,31 @@ export default function TripPlannerPage() {
         <p className="text-xs text-stone-400 mt-0.5">Pack smart, dress well</p>
       </div>
 
+      {!isPro && (
+        <div
+          className="rounded-2xl p-6 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+        >
+          <div className="flex items-start gap-3">
+            <Lock size={20} className="text-white flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-white text-base">Trip Planner is a Pro feature</p>
+              <p className="text-white/80 text-sm mt-1 leading-relaxed">
+                Build a day-by-day outfit plan and an auto packing list for any trip — styled from your own wardrobe.
+              </p>
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1.5 mt-4 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
+                style={{ color: '#725265' }}
+              >
+                <Sparkles size={14} /> Upgrade to Pro
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isPro && (<>
       {/* Config card */}
       <div
         className="rounded-2xl p-5 mb-5 border border-stone-100"
@@ -229,6 +260,7 @@ export default function TripPlannerPage() {
           </p>
         </div>
       )}
+      </>)}
     </div>
   )
 }

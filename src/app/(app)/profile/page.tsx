@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon, LocateFixed, Bell, Lock } from 'lucide-react'
 import type { Profile } from '@/lib/types'
+import StyleExpressionPicker, { type StyleExpression } from '@/components/StyleExpressionPicker'
 
 const VIZ_LIMIT = 40
 
@@ -23,8 +24,10 @@ export default function ProfilePage() {
   const [reminderTime, setReminderTime] = useState('07:30')
   const [savingNotif, setSavingNotif] = useState(false)
   const [stylePrefs, setStylePrefs] = useState<string[]>([])
+  const [styleExpression, setStyleExpression] = useState<StyleExpression>('no_preference')
   const [savingStyle, setSavingStyle] = useState(false)
-  const photoRef = useRef<HTMLInputElement>(null)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   const STYLE_OPTIONS = [
     'Minimalist', 'Classic', 'Bohemian', 'Streetwear',
@@ -49,6 +52,7 @@ export default function ProfilePage() {
       setNotifFreq(prof?.notification_frequency ?? 'daily')
       setReminderTime(prof?.morning_reminder_time ?? '07:30')
       setStylePrefs(prof?.style_preferences ?? [])
+      setStyleExpression((prof?.style_expression ?? 'no_preference') as StyleExpression)
       setLoading(false)
     }
     load()
@@ -114,8 +118,8 @@ export default function ProfilePage() {
     if (!profile) return
     setSavingStyle(true)
     const supabase = createClient()
-    await supabase.from('profiles').update({ style_preferences: stylePrefs }).eq('id', profile.id)
-    setProfile({ ...profile, style_preferences: stylePrefs })
+    await supabase.from('profiles').update({ style_preferences: stylePrefs, style_expression: styleExpression }).eq('id', profile.id)
+    setProfile({ ...profile, style_preferences: stylePrefs, style_expression: styleExpression })
     setSavingStyle(false)
   }
 
@@ -135,6 +139,28 @@ export default function ProfilePage() {
     }).eq('id', profile.id)
     setProfile({ ...profile, notification_frequency: notifFreq, morning_reminder_time: reminderTime })
     setSavingNotif(false)
+  }
+
+  async function startCheckout() {
+    setCheckingOut(true)
+    try {
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
+  async function openPortal() {
+    setOpeningPortal(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } finally {
+      setOpeningPortal(false)
+    }
   }
 
   async function signOut() {
@@ -171,12 +197,40 @@ export default function ProfilePage() {
 
       {/* Avatar + name */}
       <div className="flex items-center gap-4 mb-6">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold font-serif flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
-        >
-          {initials}
-        </div>
+        {/* Tapping the avatar opens the file picker on all devices */}
+        <label className="relative w-16 h-16 rounded-full flex-shrink-0 cursor-pointer group">
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) uploadProfilePhoto(f)
+              e.target.value = ''
+            }}
+          />
+          <div className="w-full h-full rounded-full overflow-hidden border-2 border-white shadow-md">
+            {profile?.profile_photo_url ? (
+              <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center text-white text-xl font-bold font-serif"
+                style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+              >
+                {initials}
+              </div>
+            )}
+          </div>
+          {/* Camera badge */}
+          <div
+            className="absolute bottom-0 right-0 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm"
+            style={{ background: '#AA8EA0' }}
+          >
+            {uploadingPhoto
+              ? <Loader2 size={9} className="animate-spin text-white" />
+              : <Camera size={9} className="text-white" />}
+          </div>
+        </label>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-stone-900 text-lg leading-snug truncate">
             {profile?.full_name ?? 'Unnamed'}
@@ -201,22 +255,41 @@ export default function ProfilePage() {
         <StatCard label="Plan" value={isPro ? 'Pro' : 'Free'} />
       </div>
 
+      {/* Manage subscription (Pro users) */}
+      {isPro && (
+        <div className="mb-6">
+          <button
+            onClick={openPortal}
+            disabled={openingPortal}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-stone-200 text-sm text-stone-500 hover:bg-stone-50 transition-all disabled:opacity-60"
+          >
+            {openingPortal && <Loader2 size={13} className="animate-spin" />}
+            Manage subscription
+          </button>
+        </div>
+      )}
+
       {/* Upgrade banner (free users) */}
       {!isPro && (
         <div
-          className="rounded-2xl p-5 mb-6"
+          className="rounded-2xl p-5 mb-6 relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
         >
-          <div className="flex items-start gap-3">
+          <div className="logo-watermark absolute -right-4 -bottom-4 w-28 h-36 opacity-[0.12]" aria-hidden="true" />
+          <div className="flex items-start gap-3 relative">
             <Sparkles size={20} className="text-white flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-semibold text-white text-sm">Upgrade to Pro</p>
               <p className="text-white/80 text-xs mt-0.5 leading-relaxed">
                 Unlimited items, 5 daily outfits, AI Stylist chat, week planner, and more.
               </p>
-              <button className="mt-3 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
+              <button
+                className="mt-3 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all disabled:opacity-60 flex items-center gap-2"
                 style={{ color: '#725265' }}
-                onClick={() => alert('Stripe integration coming soon!')}>
+                onClick={startCheckout}
+                disabled={checkingOut}
+              >
+                {checkingOut && <Loader2 size={13} className="animate-spin" />}
                 Upgrade for $9/mo
               </button>
             </div>
@@ -248,31 +321,28 @@ export default function ProfilePage() {
               )}
             </div>
             <div className="flex-1">
-              <input
-                ref={photoRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={!isPro}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) uploadProfilePhoto(f)
-                  e.target.value = ''
-                }}
-              />
-              <button
-                onClick={() => isPro && photoRef.current?.click()}
-                disabled={uploadingPhoto || !isPro}
-                className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all hover:opacity-80 disabled:opacity-50"
+              <label
+                className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all cursor-pointer hover:opacity-80 ${!isPro || uploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}
                 style={{ background: '#F5EEF3', color: '#725265' }}
               >
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={!isPro || uploadingPhoto}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadProfilePhoto(f)
+                    e.target.value = ''
+                  }}
+                />
                 {uploadingPhoto ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <Camera size={14} />
                 )}
                 {profile?.profile_photo_url ? 'Replace photo' : 'Upload photo'}
-              </button>
+              </label>
               <p className="text-xs text-stone-400 mt-1.5">Full-body photo works best</p>
             </div>
           </div>
@@ -395,7 +465,7 @@ export default function ProfilePage() {
           <p className="text-xs text-stone-500 mb-3 leading-relaxed">
             Pick your styles — StyleMind will tailor outfit suggestions to match.
           </p>
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-5">
             {STYLE_OPTIONS.map((s) => {
               const active = stylePrefs.includes(s)
               return (
@@ -413,6 +483,11 @@ export default function ProfilePage() {
               )
             })}
           </div>
+
+          <div className="mb-4">
+            <StyleExpressionPicker value={styleExpression} onChange={setStyleExpression} />
+          </div>
+
           <button
             onClick={saveStylePrefs}
             disabled={savingStyle}

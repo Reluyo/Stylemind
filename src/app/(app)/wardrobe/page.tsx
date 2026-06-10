@@ -1,11 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2 } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X, ScanLine } from 'lucide-react'
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
+import { FREE_ITEM_LIMIT } from '@/lib/plan'
 import AddItemModal from '@/components/AddItemModal'
+import DetectOutfitModal from '@/components/DetectOutfitModal'
+import EditItemModal from '@/components/EditItemModal'
 import ShareOutfitModal from '@/components/ShareOutfitModal'
 import WardrobeFooterAd from '@/components/ads/WardrobeFooterAd'
 
@@ -31,8 +35,9 @@ const CATEGORY_COLORS: Record<ClothingCategory, string> = {
 type Tab = 'items' | 'outfits' | 'stats'
 type OutfitWithItems = Outfit & { outfit_items?: { clothing_items: { name: string; category: string } | null }[] }
 
-export default function WardrobePage() {
+function WardrobePageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [userId, setUserId] = useState('')
   const [items, setItems] = useState<ClothingItem[]>([])
   const [savedOutfits, setSavedOutfits] = useState<OutfitWithItems[]>([])
@@ -44,7 +49,21 @@ export default function WardrobePage() {
   const [showFavsOnly, setShowFavsOnly] = useState(false)
   const [showFavOutfitsOnly, setShowFavOutfitsOnly] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showDetectModal, setShowDetectModal] = useState(false)
+  const [limitHit, setLimitHit] = useState(false)
   const [tab, setTab] = useState<Tab>('items')
+
+  const atItemLimit = !isPro && items.length >= FREE_ITEM_LIMIT
+
+  function openAdd() {
+    if (atItemLimit) { setLimitHit(true); return }
+    setShowAddModal(true)
+  }
+
+  function openDetect() {
+    if (atItemLimit) { setLimitHit(true); return }
+    setShowDetectModal(true)
+  }
 
   async function loadItems() {
     const supabase = createClient()
@@ -81,6 +100,18 @@ export default function WardrobePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
+  // Deep link from onboarding / Today empty-state: open the add sheet once
+  // the wardrobe has loaded, then strip the query param.
+  useEffect(() => {
+    if (loading) return
+    if (searchParams.get('add') === '1') {
+      if (!isPro && items.length >= FREE_ITEM_LIMIT) setLimitHit(true)
+      else setShowAddModal(true)
+      router.replace('/wardrobe')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
+
   const filtered = items.filter((item) => {
     const matchCat = category === 'all' || item.category === category
     const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -112,6 +143,10 @@ export default function WardrobePage() {
 
   function updateItemFav(id: string, val: boolean) {
     setItems((prev) => prev.map((x) => x.id === id ? { ...x, is_favorite: val } : x))
+  }
+
+  function updateItem(updated: ClothingItem) {
+    setItems((prev) => prev.map((x) => x.id === updated.id ? updated : x))
   }
 
   function updateOutfitFav(id: string, val: boolean) {
@@ -146,17 +181,30 @@ export default function WardrobePage() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="font-serif text-2xl font-bold text-stone-900">Wardrobe</h1>
-            <p className="text-xs text-stone-400 mt-0.5">{items.length} items · {savedOutfits.length} outfits</p>
+            <p className="text-xs text-stone-400 mt-0.5">
+              {items.length} items · {savedOutfits.length} outfits
+              {!isPro && <span className={atItemLimit ? 'text-red-400 font-medium' : ''}> · {items.length}/{FREE_ITEM_LIMIT}</span>}
+            </p>
           </div>
           {tab === 'items' && (
-            <button
-              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
-              style={{ background: '#AA8EA0' }}
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={14} />
-              Add item
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 transition-all"
+                onClick={openDetect}
+                title="Add items from an outfit photo"
+              >
+                <ScanLine size={14} />
+                From photo
+              </button>
+              <button
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all"
+                style={{ background: '#AA8EA0' }}
+                onClick={openAdd}
+              >
+                <Plus size={14} />
+                Add item
+              </button>
+            </div>
           )}
         </div>
 
@@ -262,8 +310,14 @@ export default function WardrobePage() {
             {!loading && filtered.length > 0 && (
               <div className="grid grid-cols-2 gap-3 pt-1 pb-4">
                 {filtered.map((item) => (
-                  <ClothingCard key={item.id} item={item} onDelete={deleteItem} onFavToggle={updateItemFav} />
+                  <ClothingCard key={item.id} item={item} onDelete={deleteItem} onFavToggle={updateItemFav} onEdit={updateItem} />
                 ))}
+                {/* Span full width so the ad sits below the grid */}
+                {!isPro && (
+                  <div className="col-span-2">
+                    <WardrobeFooterAd />
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -392,10 +446,51 @@ export default function WardrobePage() {
             setLoading(true)
             loadItems()
           }}
+          onSavedContinue={() => { loadItems() }}
         />
       )}
 
-      {!loading && !isPro && <WardrobeFooterAd />}
+      {showDetectModal && (
+        <DetectOutfitModal
+          userId={userId}
+          onClose={() => setShowDetectModal(false)}
+          onSaved={() => {
+            setShowDetectModal(false)
+            setLoading(true)
+            loadItems()
+          }}
+        />
+      )}
+
+      {limitHit && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setLimitHit(false) }}
+        >
+          <div className="w-full max-w-[430px] bg-white rounded-t-3xl px-6 pt-3 pb-10">
+            <div className="flex justify-center pb-3"><div className="w-10 h-1 rounded-full bg-stone-200" /></div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-serif text-xl font-bold text-stone-900">Wardrobe is full</h2>
+              <button onClick={() => setLimitHit(false)} className="p-1.5 rounded-full hover:bg-stone-100">
+                <X size={18} className="text-stone-500" />
+              </button>
+            </div>
+            <p className="text-sm text-stone-500 leading-relaxed mb-5">
+              Free accounts hold up to {FREE_ITEM_LIMIT} items. Upgrade to Pro for an unlimited wardrobe,
+              5 daily outfits, AI Stylist chat, and try-on.
+            </p>
+            <Link
+              href="/profile"
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90"
+              style={{ background: '#AA8EA0' }}
+            >
+              <Sparkles size={15} /> Upgrade to Pro
+            </Link>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
@@ -413,15 +508,18 @@ function ClothingCard({
   item,
   onDelete,
   onFavToggle,
+  onEdit,
 }: {
   item: ClothingItem
   onDelete: (id: string) => void
   onFavToggle: (id: string, val: boolean) => void
+  onEdit: (updated: ClothingItem) => void
 }) {
   const bg = CATEGORY_COLORS[item.category] ?? '#F5EEF3'
   const initials = item.name.slice(0, 2).toUpperCase()
   const [confirming, setConfirming] = useState(false)
   const [isFav, setIsFav] = useState(item.is_favorite)
+  const [editing, setEditing] = useState(false)
 
   async function toggleFav(e: React.MouseEvent) {
     e.stopPropagation()
@@ -433,44 +531,63 @@ function ClothingCard({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-stone-100 shadow-sm bg-white relative group">
-      {item.thumbnail_url || item.image_url ? (
-        <img src={item.thumbnail_url ?? item.image_url!} alt={item.name} className="w-full h-32 object-cover" />
-      ) : (
-        <div className="w-full h-32 flex items-center justify-center" style={{ background: bg }}>
-          <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
-        </div>
-      )}
-      <button
-        onClick={toggleFav}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
-        style={{ background: isFav ? '#AA8EA0' : 'rgba(255,255,255,0.85)' }}
-      >
-        <Heart size={13} fill={isFav ? 'white' : 'none'} color={isFav ? 'white' : '#AA8EA0'} />
-      </button>
-      <div className="px-3 py-2.5">
-        <p className="text-sm font-medium text-stone-800 leading-snug truncate">{item.name}</p>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1.5">
-            {item.color && <span className="text-xs text-stone-400">{item.color}</span>}
-            {item.color && <span className="text-stone-200 text-xs">·</span>}
-            <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: bg, color: '#4a3545' }}>
-              {item.category}
-            </span>
+    <>
+      <div className="rounded-2xl overflow-hidden border border-stone-100 shadow-sm bg-white relative group">
+        {item.thumbnail_url || item.image_url ? (
+          <img src={item.thumbnail_url ?? item.image_url!} alt={item.name} className="w-full h-32 object-cover" />
+        ) : (
+          <div className="w-full h-32 flex items-center justify-center" style={{ background: bg }}>
+            <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
           </div>
-          {confirming ? (
-            <button className="text-xs text-red-500 font-medium" onClick={() => onDelete(item.id)}>Delete</button>
-          ) : (
-            <button
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
-              onClick={() => setConfirming(true)}
-            >
-              <Trash2 size={12} className="text-stone-300 hover:text-red-400 transition-colors" />
-            </button>
-          )}
+        )}
+        <button
+          onClick={toggleFav}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+          style={{ background: isFav ? '#AA8EA0' : 'rgba(255,255,255,0.85)' }}
+        >
+          <Heart size={13} fill={isFav ? 'white' : 'none'} color={isFav ? 'white' : '#AA8EA0'} />
+        </button>
+        <div className="px-3 py-2.5">
+          <p className="text-sm font-medium text-stone-800 leading-snug truncate">{item.name}</p>
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-1.5">
+              {item.color && <span className="text-xs text-stone-400">{item.color}</span>}
+              {item.color && <span className="text-stone-200 text-xs">·</span>}
+              <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: bg, color: '#4a3545' }}>
+                {item.category}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              {confirming ? (
+                <button className="text-xs text-red-500 font-medium" onClick={() => onDelete(item.id)}>Delete</button>
+              ) : (
+                <>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
+                    onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+                  >
+                    <Pencil size={12} className="text-stone-300 hover:text-stone-500 transition-colors" />
+                  </button>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-stone-50 transition-all"
+                    onClick={() => setConfirming(true)}
+                  >
+                    <Trash2 size={12} className="text-stone-300 hover:text-red-400 transition-colors" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+      {editing && (
+        <EditItemModal
+          item={item}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => { onEdit(updated); setEditing(false) }}
+        />
+      )}
+    </>
   )
 }
 
@@ -560,5 +677,13 @@ function SavedOutfitCard({
 
       {sharing && <ShareOutfitModal outfit={outfit} onClose={() => setSharing(false)} />}
     </>
+  )
+}
+
+export default function WardrobePage() {
+  return (
+    <Suspense fallback={null}>
+      <WardrobePageInner />
+    </Suspense>
   )
 }

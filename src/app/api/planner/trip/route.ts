@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildWardrobeSummary } from '@/lib/ai'
+import { getUserAndProfile } from '@/lib/auth-server'
 import type { ClothingItem } from '@/lib/types'
 
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 503 })
+  }
+  const { user, profile } = await getUserAndProfile()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Trip planner is a Pro feature.
+  if (profile?.plan !== 'pro') {
+    return NextResponse.json({ error: 'Trip planner is a Pro feature.', code: 'NOT_PRO' }, { status: 403 })
   }
   try {
     const { items, days, occasion, destination }: {

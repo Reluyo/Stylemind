@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock, CheckCircle2 } from 'lucide-react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Sparkles, Send, RefreshCw, CloudSun, ChevronRight, Bookmark, BookmarkCheck, Wand2, Lock, CheckCircle2, Plus } from 'lucide-react'
 import type { AIOutfitSuggestion, ClothingItem, WeatherSummary } from '@/lib/types'
 import BetweenOutfitsAd from '@/components/ads/BetweenOutfitsAd'
-import StylistStripAd from '@/components/ads/StylistStripAd'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
@@ -34,6 +35,7 @@ export default function TodayPage() {
   const [items, setItems] = useState<ClothingItem[]>([])
   const [outfits, setOutfits] = useState<AIOutfitSuggestion[]>([])
   const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState('')
   const [isPro, setIsPro] = useState(true) // default true to avoid flash of ads on load
   const [hasProfilePhoto, setHasProfilePhoto] = useState(false)
   const [plannedOutfitAlert, setPlannedOutfitAlert] = useState<{ outfitName: string; message: string; type: 'rain' | 'cold' | 'hot' } | null>(null)
@@ -51,9 +53,12 @@ export default function TodayPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, location, plan, profile_photo_url, style_preferences')
+        .select('full_name, location, plan, profile_photo_url, style_preferences, style_expression, onboarded')
         .eq('id', user.id)
         .single()
+
+      // First-run users go through onboarding before they ever hit this screen.
+      if (profile && !profile.onboarded) { router.replace('/onboarding'); return }
 
       setUserName(profile?.full_name?.split(' ')[0] ?? '')
       setIsPro(profile?.plan === 'pro')
@@ -61,6 +66,17 @@ export default function TodayPage() {
       const loc = profile?.location ?? 'New York'
       if (profile?.style_preferences?.length) {
         sessionStorage.setItem('sm_style_prefs', JSON.stringify(profile.style_preferences))
+      }
+      if (profile?.style_expression) {
+        sessionStorage.setItem('sm_style_expression', profile.style_expression)
+      }
+
+      // Restore today's already-generated outfits so a refresh doesn't wipe
+      // them (and waste another generation).
+      const todayKey = `sm_today_outfits_${user.id}_${new Date().toISOString().slice(0, 10)}`
+      const cachedOutfits = localStorage.getItem(todayKey)
+      if (cachedOutfits) {
+        try { setOutfits(JSON.parse(cachedOutfits)) } catch {}
       }
 
       const [{ data: clothing }, weatherRes] = await Promise.all([
@@ -108,6 +124,7 @@ export default function TodayPage() {
   async function generateOutfits() {
     if (!items.length || !weather) return
     setGenerating(true)
+    setGenError('')
     setOutfits([])
     try {
       const res = await fetch('/api/outfits/generate', {
@@ -117,10 +134,30 @@ export default function TodayPage() {
           items,
           weather,
           stylePreferences: JSON.parse(sessionStorage.getItem('sm_style_prefs') ?? '[]'),
+          styleExpression: sessionStorage.getItem('sm_style_expression') ?? 'no_preference',
         }),
       })
       const data = await res.json()
-      setOutfits(data.outfits ?? [])
+
+      if (!res.ok) {
+        setGenError(data.error ?? 'Couldn\'t generate outfits. Please try again.')
+        return
+      }
+      if (!data.outfits?.length) {
+        setGenError('No outfits came back — try again in a moment.')
+        return
+      }
+
+      setOutfits(data.outfits)
+      // Cache so a page refresh keeps today's picks.
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const todayKey = `sm_today_outfits_${user.id}_${new Date().toISOString().slice(0, 10)}`
+        localStorage.setItem(todayKey, JSON.stringify(data.outfits))
+      }
+    } catch {
+      setGenError('Something went wrong. Please try again.')
     } finally {
       setGenerating(false)
     }
@@ -140,7 +177,13 @@ export default function TodayPage() {
       body: JSON.stringify({ messages: newMessages, items, weather }),
     })
 
-    const reader = res.body!.getReader()
+    if (!res.ok || !res.body) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'AI Stylist is a Pro feature — upgrade in your Profile to chat.' }])
+      setStreaming(false)
+      return
+    }
+
+    const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let full = ''
     while (true) {
@@ -158,6 +201,21 @@ export default function TodayPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
 
+  // Fire the first generation automatically when arriving from onboarding's
+  // quick-start (?generate=1) — this is the activation "aha" moment. Reading
+  // location directly avoids forcing a Suspense boundary on the whole page.
+  const autoGenRef = useRef(false)
+  useEffect(() => {
+    if (autoGenRef.current) return
+    if (typeof window === 'undefined') return
+    if (!new URLSearchParams(window.location.search).get('generate')) return
+    if (!items.length || !weather) return
+    autoGenRef.current = true
+    window.history.replaceState(null, '', '/today')
+    generateOutfits()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, weather])
+
   const currentSeason = weather?.season ?? ''
   const suggestedItems = [
     ...items.filter((i) => i.season?.includes(currentSeason) || i.season?.includes('All')),
@@ -167,9 +225,12 @@ export default function TodayPage() {
   return (
     <div className="px-4 pt-6">
       <div className="mb-5 pr-10">
-        <p className="text-stone-400 text-sm">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <Image src="/icon.svg" alt="StyleMind" width={28} height={28} className="rounded-lg" />
+          <p className="text-stone-400 text-sm">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
         <h1 className="font-serif text-2xl font-bold text-stone-900">
           {userName ? `What will we wear today, ${userName}?` : 'What will we wear today?'}
         </h1>
@@ -227,6 +288,17 @@ export default function TodayPage() {
         </button>
       </div>
 
+      {genError && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-2xl mb-4 bg-red-50 border border-red-100">
+          <p className="text-sm text-red-600 flex-1">{genError}</p>
+          {genError.includes('Upgrade') && (
+            <Link href="/profile" className="text-xs font-semibold underline whitespace-nowrap" style={{ color: '#AA8EA0' }}>
+              Upgrade
+            </Link>
+          )}
+        </div>
+      )}
+
       {outfits.length > 0 ? (
         <div className="space-y-3 mb-6">
           {outfits.map((outfit, i) => (
@@ -242,9 +314,20 @@ export default function TodayPage() {
           style={{ background: 'rgba(255,255,255,0.6)' }}
         >
           <Sparkles size={28} className="mx-auto mb-2" style={{ color: '#AA8EA0' }} />
-          <p className="text-sm text-stone-500">
-            {items.length ? 'Tap Generate to get today\'s outfit picks' : 'Add wardrobe items to get started'}
-          </p>
+          {items.length ? (
+            <p className="text-sm text-stone-500">Tap Generate to get today&apos;s outfit picks</p>
+          ) : (
+            <>
+              <p className="text-sm text-stone-500 mb-3">Add a few wardrobe items and StyleMind will dress you.</p>
+              <Link
+                href="/wardrobe?add=1"
+                className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full text-white transition-all hover:opacity-90"
+                style={{ background: '#AA8EA0' }}
+              >
+                <Plus size={14} /> Add your first item
+              </Link>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3 mb-6">
@@ -296,6 +379,30 @@ export default function TodayPage() {
         <div className="mb-6">
           <h2 className="font-serif text-lg font-semibold text-stone-900 mb-3">AI Stylist</h2>
 
+          {!isPro ? (
+            <div
+              className="rounded-2xl p-5 relative overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+            >
+              <div className="flex items-start gap-3">
+                <Sparkles size={18} className="text-white flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-white text-sm">Chat with your AI Stylist</p>
+                  <p className="text-white/80 text-xs mt-0.5 leading-relaxed">
+                    Ask to swap a piece, dress up for an occasion, or refine any look. Available on Pro.
+                  </p>
+                  <Link
+                    href="/profile"
+                    className="inline-block mt-3 bg-white text-xs font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
+                    style={{ color: '#725265' }}
+                  >
+                    Upgrade to Pro
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
           {messages.length === 0 && !streaming && (
             <div className="flex flex-wrap gap-2 mb-3">
               {REFINE_CHIPS.map((chip) => (
@@ -337,8 +444,6 @@ export default function TodayPage() {
             </div>
           )}
 
-          {!isPro && <StylistStripAd />}
-
           <div className="flex gap-2">
             <input
               value={input}
@@ -356,6 +461,8 @@ export default function TodayPage() {
               <Send size={16} />
             </button>
           </div>
+          </>
+          )}
         </div>
       )}
     </div>

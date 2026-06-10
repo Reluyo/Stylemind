@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Calendar, RotateCcw } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Calendar, RotateCcw, Lock } from 'lucide-react'
 import type { ClothingItem } from '@/lib/types'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -32,6 +33,7 @@ export default function PlannerPage() {
   const [plan, setPlan] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [parsedPlan, setParsedPlan] = useState<Record<string, string>>({})
+  const [isPro, setIsPro] = useState(true)
   const weekDates = getWeekDates()
 
   useEffect(() => {
@@ -40,8 +42,12 @@ export default function PlannerPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUserId(user.id)
-      const { data } = await supabase.from('clothing_items').select('*').eq('user_id', user.id)
+      const [{ data }, { data: profile }] = await Promise.all([
+        supabase.from('clothing_items').select('*').eq('user_id', user.id),
+        supabase.from('profiles').select('plan').eq('id', user.id).single(),
+      ])
       setItems(data ?? [])
+      setIsPro(profile?.plan === 'pro')
 
       // Restore cached plan for this week
       const cached = localStorage.getItem(`stylemind_weekplan_${user.id}_${getWeekKey()}`)
@@ -115,28 +121,55 @@ export default function PlannerPage() {
             {weekDates[4].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {plan && !generating && (
+        {isPro && (
+          <div className="flex items-center gap-2">
+            {plan && !generating && (
+              <button
+                onClick={clearPlan}
+                className="p-2 rounded-full text-stone-400 hover:bg-stone-100 transition-all"
+                title="Clear plan"
+              >
+                <RotateCcw size={14} />
+              </button>
+            )}
             <button
-              onClick={clearPlan}
-              className="p-2 rounded-full text-stone-400 hover:bg-stone-100 transition-all"
-              title="Clear plan"
+              onClick={generatePlan}
+              disabled={generating || !items.length}
+              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all disabled:opacity-50"
+              style={{ background: '#AA8EA0' }}
             >
-              <RotateCcw size={14} />
+              <Sparkles size={14} />
+              {generating ? 'Planning…' : plan ? 'Regenerate' : 'Generate'}
             </button>
-          )}
-          <button
-            onClick={generatePlan}
-            disabled={generating || !items.length}
-            className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full text-white hover:opacity-80 transition-all disabled:opacity-50"
-            style={{ background: '#AA8EA0' }}
-          >
-            <Sparkles size={14} />
-            {generating ? 'Planning…' : plan ? 'Regenerate' : 'Generate'}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
+      {!isPro && (
+        <div
+          className="rounded-2xl p-6 relative overflow-hidden mt-2"
+          style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+        >
+          <div className="flex items-start gap-3">
+            <Lock size={20} className="text-white flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-white text-base">Week Planner is a Pro feature</p>
+              <p className="text-white/80 text-sm mt-1 leading-relaxed">
+                Generate a full Mon–Fri outfit plan in one tap — no repeat looks, always weather-appropriate.
+              </p>
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1.5 mt-4 bg-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition-all"
+                style={{ color: '#725265' }}
+              >
+                <Sparkles size={14} /> Upgrade to Pro
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isPro && (<>
       {!items.length && (
         <div className="text-center py-10 text-stone-400 text-sm">
           <p>Add wardrobe items first to generate a plan.</p>
@@ -207,6 +240,7 @@ export default function PlannerPage() {
           </p>
         </div>
       )}
+      </>)}
     </div>
   )
 }

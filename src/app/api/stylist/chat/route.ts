@@ -1,10 +1,26 @@
 import { NextRequest } from 'next/server'
 import { streamStyleChat, buildWardrobeSummary, buildWeatherContext } from '@/lib/ai'
+import { getUserAndProfile } from '@/lib/auth-server'
 import { ClothingItem, WeatherSummary } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
+  const { user, profile } = await getUserAndProfile()
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  // AI Stylist chat is a Pro feature.
+  if (profile?.plan !== 'pro') {
+    return new Response(
+      JSON.stringify({ error: 'AI Stylist chat is a Pro feature.', code: 'NOT_PRO' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   const {
     messages,
     items,

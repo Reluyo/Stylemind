@@ -6,6 +6,7 @@ export interface Profile {
   avatar_url: string | null
   location: string | null
   style_preferences: string[]
+  style_expression: 'feminine' | 'masculine' | 'fluid' | 'no_preference'
   plan: Plan
   subscription_started_at: string | null
   subscription_expires_at: string | null
@@ -14,6 +15,10 @@ export interface Profile {
   viz_count: number
   viz_reset_month: string
   notification_frequency: 'daily' | 'weekly' | 'none'
+  stripe_customer_id: string | null
+  onboarded: boolean
+  outfit_gen_date: string | null
+  outfit_gen_count: number
   created_at: string
   updated_at: string
 }

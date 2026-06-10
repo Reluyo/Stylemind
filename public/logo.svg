@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" fill="none">
+  <!-- Hanger hook -->
+  <path d="M100 18 C100 18 100 8 110 8 C120 8 122 18 115 22" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Hanger bar -->
+  <path d="M115 22 C112 26 108 30 103 33" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Neck -->
+  <path d="M103 33 C98 36 92 40 88 46" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M97 33 C102 36 108 40 112 46" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Bodice / torso outline -->
+  <path d="
+    M88 46
+    C72 52 55 62 50 80
+    C46 94 52 104 58 112
+    C66 122 78 128 80 136
+    C82 142 80 148 78 152
+    M112 46
+    C128 52 145 62 150 80
+    C154 94 148 104 142 112
+    C134 122 122 128 120 136
+    C118 142 120 148 122 152
+  " stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Peplum flare -->
+  <path d="M78 152 C68 156 55 158 48 165 C44 169 46 174 52 175 M122 152 C132 156 145 158 152 165 C156 169 154 174 148 175" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Skirt -->
+  <path d="
+    M52 175
+    C50 185 50 200 52 215
+    C54 228 62 238 70 242
+    M148 175
+    C150 185 150 200 148 215
+    C146 228 138 238 130 242
+  " stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Skirt bottom -->
+  <path d="M70 242 C85 246 115 246 130 242" stroke="#725265" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- 4-point sparkle -->
+  <path d="M100 72 L103 85 L116 88 L103 91 L100 104 L97 91 L84 88 L97 85 Z" fill="#725265"/>
+</svg>
