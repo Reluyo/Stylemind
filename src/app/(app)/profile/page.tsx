@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { LogOut, Sparkles, MapPin, Edit2, Camera, Loader2, Image as ImageIcon, LocateFixed, Bell, Lock } from 'lucide-react'
@@ -26,7 +26,6 @@ export default function ProfilePage() {
   const [savingStyle, setSavingStyle] = useState(false)
   const [checkingOut, setCheckingOut] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
-  const photoRef = useRef<HTMLInputElement>(null)
 
   const STYLE_OPTIONS = [
     'Minimalist', 'Classic', 'Bohemian', 'Streetwear',
@@ -195,18 +194,41 @@ export default function ProfilePage() {
 
       {/* Avatar + name */}
       <div className="flex items-center gap-4 mb-6">
-        <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-white shadow-md">
-          {profile?.profile_photo_url ? (
-            <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center text-white text-xl font-bold font-serif"
-              style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
-            >
-              {initials}
-            </div>
-          )}
-        </div>
+        {/* Tapping the avatar opens the file picker on all devices */}
+        <label className="relative w-16 h-16 rounded-full flex-shrink-0 cursor-pointer group">
+          <input
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) uploadProfilePhoto(f)
+              e.target.value = ''
+            }}
+          />
+          <div className="w-full h-full rounded-full overflow-hidden border-2 border-white shadow-md">
+            {profile?.profile_photo_url ? (
+              <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center text-white text-xl font-bold font-serif"
+                style={{ background: 'linear-gradient(135deg, #AA8EA0, #725265)' }}
+              >
+                {initials}
+              </div>
+            )}
+          </div>
+          {/* Camera badge */}
+          <div
+            className="absolute bottom-0 right-0 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm"
+            style={{ background: '#AA8EA0' }}
+          >
+            {uploadingPhoto
+              ? <Loader2 size={9} className="animate-spin text-white" />
+              : <Camera size={9} className="text-white" />}
+          </div>
+        </label>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-stone-900 text-lg leading-snug truncate">
             {profile?.full_name ?? 'Unnamed'}
@@ -297,31 +319,28 @@ export default function ProfilePage() {
               )}
             </div>
             <div className="flex-1">
-              <input
-                ref={photoRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={!isPro}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) uploadProfilePhoto(f)
-                  e.target.value = ''
-                }}
-              />
-              <button
-                onClick={() => isPro && photoRef.current?.click()}
-                disabled={uploadingPhoto || !isPro}
-                className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all hover:opacity-80 disabled:opacity-50"
+              <label
+                className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition-all cursor-pointer hover:opacity-80 ${!isPro || uploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}
                 style={{ background: '#F5EEF3', color: '#725265' }}
               >
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={!isPro || uploadingPhoto}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadProfilePhoto(f)
+                    e.target.value = ''
+                  }}
+                />
                 {uploadingPhoto ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <Camera size={14} />
                 )}
                 {profile?.profile_photo_url ? 'Replace photo' : 'Upload photo'}
-              </button>
+              </label>
               <p className="text-xs text-stone-400 mt-1.5">Full-body photo works best</p>
             </div>
           </div>
