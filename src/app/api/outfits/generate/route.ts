@@ -38,8 +38,22 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Exclude items currently in laundry from AI consideration
+    const availableItems = items.filter((i) => !i.in_laundry)
+
+    // Fetch outfit names worn in the last 7 days to avoid repeating
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const { data: recentWears } = await supabase
+      .from('wear_log')
+      .select('outfit_name')
+      .eq('user_id', user.id)
+      .gte('worn_date', sevenDaysAgo)
+    const recentlyWorn = (recentWears ?? [])
+      .map((r) => r.outfit_name)
+      .filter((n): n is string => !!n)
+
     const count = isPro ? PRO_OUTFIT_COUNT : FREE_OUTFIT_COUNT
-    const outfits = await generateOutfits(items, weather, stylePreferences ?? [], count, styleExpression ?? profile?.style_expression ?? 'no_preference')
+    const outfits = await generateOutfits(availableItems.length ? availableItems : items, weather, stylePreferences ?? [], count, styleExpression ?? profile?.style_expression ?? 'no_preference', recentlyWorn)
 
     const remaining = isPro
       ? null

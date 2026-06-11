@@ -37,6 +37,7 @@ export interface ClothingItem {
   thumbnail_url: string | null
   brand: string | null
   is_favorite: boolean
+  in_laundry: boolean
   times_worn: number
   last_worn_at: string | null
   created_at: string

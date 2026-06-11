@@ -37,13 +37,17 @@ export async function generateOutfits(
   weather: WeatherSummary,
   stylePreferences: string[] = [],
   count = 5,
-  styleExpression: string = 'no_preference'
+  styleExpression: string = 'no_preference',
+  recentlyWorn: string[] = []
 ): Promise<AIOutfitSuggestion[]> {
   const styleNote = stylePreferences.length
     ? `\n- The user's style preferences are: ${stylePreferences.join(', ')}. Lean into these aesthetics.`
     : ''
   const expressionNote = EXPRESSION_NOTES[styleExpression]
     ? `\n- ${EXPRESSION_NOTES[styleExpression]}`
+    : ''
+  const recentNote = recentlyWorn.length
+    ? `\n- Avoid repeating these outfits worn in the last 7 days: ${recentlyWorn.join(', ')}. Choose fresh combinations instead.`
     : ''
 
   const systemPrompt = `You are StyleMind, a personal AI stylist. Given a user's wardrobe and the day's weather/context, suggest exactly ${count} outfit combinations.
@@ -55,7 +59,7 @@ Rules:
 - Only use items that actually exist in the wardrobe list provided.
 - Each outfit should have 2–4 items.
 - Vary the occasions (e.g. work, casual, smart casual, evening, sporty).
-- Keep reasons concise and weather/day relevant.${styleNote}${expressionNote}`
+- Keep reasons concise and weather/day relevant.${styleNote}${expressionNote}${recentNote}`
 
   const userMsg = `Wardrobe:\n${buildWardrobeSummary(items)}\n\nContext: ${buildWeatherContext(weather)}\n\nSuggest ${count} outfits.`
 

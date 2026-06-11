@@ -593,11 +593,19 @@ function OutfitCard({
     if (!savedId || wornToday) return
     setWornToday(true)
     const supabase = createClient()
-    const { data } = await supabase.from('outfits').select('times_worn').eq('id', savedId).single()
-    await supabase.from('outfits').update({
-      times_worn: (data?.times_worn ?? 0) + 1,
-      last_worn_at: new Date().toISOString(),
-    }).eq('id', savedId)
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: outfitRow } = await supabase.from('outfits').select('times_worn, name').eq('id', savedId).single()
+    await Promise.all([
+      supabase.from('outfits').update({
+        times_worn: (outfitRow?.times_worn ?? 0) + 1,
+        last_worn_at: new Date().toISOString(),
+      }).eq('id', savedId),
+      supabase.from('wear_log').insert({
+        outfit_id: savedId,
+        outfit_name: outfitRow?.name ?? outfit.name,
+        worn_date: today,
+      }),
+    ])
   }
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])

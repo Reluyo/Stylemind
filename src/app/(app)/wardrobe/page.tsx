@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X, ScanLine } from 'lucide-react'
+import { Search, Plus, Shirt, Bookmark, Trash2, Heart, Share2, BarChart2, Pencil, Sparkles, X, ScanLine, WashingMachine, CalendarPlus, Calendar } from 'lucide-react'
 import type { ClothingItem, ClothingCategory, Outfit } from '@/lib/types'
 import { FREE_ITEM_LIMIT } from '@/lib/plan'
 import AddItemModal from '@/components/AddItemModal'
@@ -34,6 +34,7 @@ const CATEGORY_COLORS: Record<ClothingCategory, string> = {
 
 type Tab = 'items' | 'outfits' | 'stats'
 type OutfitWithItems = Outfit & { outfit_items?: { clothing_items: { name: string; category: string } | null }[] }
+interface WearLogEntry { id: string; outfit_name: string | null; worn_date: string }
 
 function WardrobePageInner() {
   const router = useRouter()
@@ -48,6 +49,7 @@ function WardrobePageInner() {
   const [category, setCategory] = useState<ClothingCategory | 'all'>('all')
   const [showFavsOnly, setShowFavsOnly] = useState(false)
   const [showFavOutfitsOnly, setShowFavOutfitsOnly] = useState(false)
+  const [wearLog, setWearLog] = useState<WearLogEntry[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDetectModal, setShowDetectModal] = useState(false)
   const [limitHit, setLimitHit] = useState(false)
@@ -71,7 +73,7 @@ function WardrobePageInner() {
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
 
-    const [{ data: clothing }, { data: outfits }, { data: profile }] = await Promise.all([
+    const [{ data: clothing }, { data: outfits }, { data: profile }, { data: wearLogData }] = await Promise.all([
       supabase
         .from('clothing_items')
         .select('*')
@@ -87,10 +89,17 @@ function WardrobePageInner() {
         .select('plan')
         .eq('id', user.id)
         .single(),
+      supabase
+        .from('wear_log')
+        .select('id, outfit_name, worn_date')
+        .eq('user_id', user.id)
+        .order('worn_date', { ascending: false })
+        .limit(30),
     ])
 
     setItems(clothing ?? [])
     setSavedOutfits(outfits ?? [])
+    setWearLog(wearLogData ?? [])
     setIsPro(profile?.plan === 'pro')
     setLoading(false)
   }
@@ -168,6 +177,7 @@ function WardrobePageInner() {
     .slice(0, 3)
 
   const neverWorn = items.filter((i) => i.times_worn === 0).length
+  const inLaundryCount = items.filter((i) => i.in_laundry).length
 
   const seasonCounts = ['Spring', 'Summer', 'Fall', 'Winter'].map((s) => ({
     season: s,
@@ -429,7 +439,29 @@ function WardrobePageInner() {
                   <StatCard label="Total items" value={items.length} />
                   <StatCard label="Outfits" value={savedOutfits.length} />
                   <StatCard label="Favorites" value={items.filter((i) => i.is_favorite).length} />
+                  {inLaundryCount > 0 && <StatCard label="In laundry" value={inLaundryCount} />}
                 </div>
+
+                {wearLog.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-stone-100 p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Calendar size={15} style={{ color: '#AA8EA0' }} />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Wear log</p>
+                    </div>
+                    <div className="space-y-2">
+                      {wearLog.slice(0, 10).map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between">
+                          <span className="text-sm text-stone-700 truncate flex-1">
+                            {entry.outfit_name ?? 'Outfit'}
+                          </span>
+                          <span className="text-xs text-stone-400 ml-2 flex-shrink-0">
+                            {new Date(entry.worn_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -519,6 +551,7 @@ function ClothingCard({
   const initials = item.name.slice(0, 2).toUpperCase()
   const [confirming, setConfirming] = useState(false)
   const [isFav, setIsFav] = useState(item.is_favorite)
+  const [inLaundry, setInLaundry] = useState(item.in_laundry ?? false)
   const [editing, setEditing] = useState(false)
 
   async function toggleFav(e: React.MouseEvent) {
@@ -528,6 +561,14 @@ function ClothingCard({
     onFavToggle(item.id, next)
     const supabase = createClient()
     await supabase.from('clothing_items').update({ is_favorite: next }).eq('id', item.id)
+  }
+
+  async function toggleLaundry(e: React.MouseEvent) {
+    e.stopPropagation()
+    const next = !inLaundry
+    setInLaundry(next)
+    const supabase = createClient()
+    await supabase.from('clothing_items').update({ in_laundry: next }).eq('id', item.id)
   }
 
   return (
@@ -540,12 +581,25 @@ function ClothingCard({
             <span className="font-serif text-2xl font-bold" style={{ color: '#725265', opacity: 0.4 }}>{initials}</span>
           </div>
         )}
+        {inLaundry && (
+          <div className="absolute inset-0 bg-blue-50/60 flex items-center justify-center pointer-events-none h-32">
+            <span className="text-xs font-semibold text-blue-500 bg-white/90 px-2 py-0.5 rounded-full">In laundry</span>
+          </div>
+        )}
         <button
           onClick={toggleFav}
           className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
           style={{ background: isFav ? '#AA8EA0' : 'rgba(255,255,255,0.85)' }}
         >
           <Heart size={13} fill={isFav ? 'white' : 'none'} color={isFav ? 'white' : '#AA8EA0'} />
+        </button>
+        <button
+          onClick={toggleLaundry}
+          className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+          style={{ background: inLaundry ? '#DBEAFE' : 'rgba(255,255,255,0.85)' }}
+          title={inLaundry ? 'Mark as clean' : 'Mark as in laundry'}
+        >
+          <WashingMachine size={13} color={inLaundry ? '#3B82F6' : '#aaa'} />
         </button>
         <div className="px-3 py-2.5">
           <p className="text-sm font-medium text-stone-800 leading-snug truncate">{item.name}</p>
@@ -604,6 +658,26 @@ function SavedOutfitCard({
   const [expanded, setExpanded] = useState(false)
   const [isFav, setIsFav] = useState(outfit.is_favorite)
   const [sharing, setSharing] = useState(false)
+  const [planning, setPlanning] = useState(false)
+  const [planDate, setPlanDate] = useState('')
+  const [planSaved, setPlanSaved] = useState(false)
+  const [planSaving, setPlanSaving] = useState(false)
+
+  async function savePlan() {
+    if (!planDate || planSaving) return
+    setPlanSaving(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('planned_outfits').upsert({
+        outfit_id: outfit.id,
+        planned_date: planDate,
+      }, { onConflict: 'user_id,planned_date' })
+      setPlanSaved(true)
+      setTimeout(() => { setPlanning(false); setPlanSaved(false); setPlanDate('') }, 1200)
+    } finally {
+      setPlanSaving(false)
+    }
+  }
 
   const itemNames = outfit.outfit_items
     ?.map((oi) => oi.clothing_items?.name)
@@ -642,6 +716,14 @@ function SavedOutfitCard({
           </button>
 
           <button
+            onClick={(e) => { e.stopPropagation(); setPlanning(true) }}
+            className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0"
+            title="Plan for a date"
+          >
+            <CalendarPlus size={14} className="text-stone-300 hover:text-stone-500 transition-colors" />
+          </button>
+
+          <button
             onClick={(e) => { e.stopPropagation(); setSharing(true) }}
             className="p-1.5 rounded-lg hover:bg-stone-50 transition-colors flex-shrink-0"
           >
@@ -676,6 +758,42 @@ function SavedOutfitCard({
       </div>
 
       {sharing && <ShareOutfitModal outfit={outfit} onClose={() => setSharing(false)} />}
+
+      {planning && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setPlanning(false) }}
+        >
+          <div className="w-full max-w-[430px] bg-white rounded-t-3xl px-6 pt-3 pb-10">
+            <div className="flex justify-center pb-3"><div className="w-10 h-1 rounded-full bg-stone-200" /></div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-serif text-lg font-bold text-stone-900">Plan this outfit</h2>
+              <button onClick={() => setPlanning(false)} className="p-1.5 rounded-full hover:bg-stone-100">
+                <X size={16} className="text-stone-500" />
+              </button>
+            </div>
+            <p className="text-sm text-stone-500 mb-4 leading-relaxed">
+              Pick a date and <span className="font-medium text-stone-700">{outfit.name}</span> will be scheduled. You&apos;ll get a weather alert on the day if conditions don&apos;t match.
+            </p>
+            <input
+              type="date"
+              value={planDate}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setPlanDate(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-stone-200 text-sm outline-none focus:border-[#AA8EA0] transition-colors mb-4"
+            />
+            <button
+              onClick={savePlan}
+              disabled={!planDate || planSaving || planSaved}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-medium text-white text-sm transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: planSaved ? '#6DAB6D' : '#AA8EA0' }}
+            >
+              {planSaved ? '✓ Planned!' : planSaving ? 'Saving…' : 'Plan this outfit'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
